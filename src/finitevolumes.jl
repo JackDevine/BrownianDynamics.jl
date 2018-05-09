@@ -73,5 +73,5 @@ function flux!(du,u,A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
     du[(nx*ny+1):2nx*ny] .= A*(((J_x[1:ny,1:nx].*Vxshift[1:ny,1:nx]-J_x[1:ny,2:nx+1].*Vxshift[1:ny,2:nx+1]
                                -coupling*(T_x[1:ny,1:nx]-T_x[1:ny,2:nx+1]))/dy
                              +(J_y[1:ny,1:nx].*Vyshift[1:ny,1:nx]-J_y[2:ny+1,1:nx].*Vyshift[2:ny+1,1:nx]
-                               -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx))[:].-A*du[1:nx*ny].*V[:]
+                               -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx))[:].+A*du[1:nx*ny].*V[:]
 end
