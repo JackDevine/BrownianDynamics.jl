@@ -1,5 +1,7 @@
 module BrownianDynamics
 
-# package code goes here
+export flux!
+
+include("finitevolumes.jl")
 
 end # module
