@@ -5,11 +5,11 @@ Compute the flux `du` going out of each cell in `u`, where `u` represents `[P[:]
 where `P[j,i]` is the integrated probability distribution of the `i`, `j`th. `U` is the
 energy density. The parameters are as follows:
   * A: Dimensionless inverse heat capacity
-  * coupling: $\\frac{B}{A}$
+  * coupling: Coupling constant
   * T0: Boundary temperature
-  * V[j,i]: Potential at the point $x_i$, $y_j$
-  * Vxshift: Potential at the point $x_i-\Delta x$, $y_j$
-  * Vyshift: Potential at the point $x_i$, $y_j-\Delta y$
+  * V[j,i]: Potential at the point (x_i,y_j)
+  * Vxshift: Potential at the point (x_i-dx,y_j)
+  * Vyshift: Potential at the point (x_i,y_j-dy)
   ...
 """
 function flux!(du,u,coupling,T0,Vxshift,Vyshift,V_x,V_y,dx,dy)
