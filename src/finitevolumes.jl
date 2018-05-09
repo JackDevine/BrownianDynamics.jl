@@ -12,7 +12,7 @@ energy density. The parameters are as follows:
   * Vyshift: Potential at the point (x_i,y_j-dy)
   ...
 """
-function flux!(du,u,coupling,T0,Vxshift,Vyshift,V_x,V_y,dx,dy)
+function flux!(du,u,A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
     # TODO Make T0 a vector.
     ny,nx = size(V_x)[1],size(V_x)[2]
     P = reshape(view(u,1:nx*ny),ny,nx)
@@ -64,14 +64,14 @@ function flux!(du,u,coupling,T0,Vxshift,Vyshift,V_x,V_y,dx,dy)
     J_y[ny+1,:] = zero(eltype(J_y))
 
 
-    @. du[1:nx*ny] = ((J_x[1:ny,1:nx]-J_x[1:ny,2:nx+1])/dy + (J_y[1:ny,1:nx]-J_y[2:ny+1,1:nx])/dx)[:]
+    du[1:nx*ny] .= ((J_x[1:ny,1:nx]-J_x[1:ny,2:nx+1])/dy + (J_y[1:ny,1:nx]-J_y[2:ny+1,1:nx])/dx)[:]
 
     # du[(nx*ny+1):2nx*ny] .= ((J_x[1:ny,1:nx].*Vxshift[1:ny,1:nx]-J_x[1:ny,2:nx+1].*Vxshift[1:ny,2:nx+1]
     #                           -coupling*(T_x[1:ny,1:nx]-T_x[1:ny,2:nx+1]))/dy
     #                          +(J_y[1:ny,1:nx].*Vyshift[1:ny,1:nx]-J_y[2:ny+1,1:nx].*Vyshift[2:ny+1,1:nx]
     #                           -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx)[:]
-    @. du[(nx*ny+1):2nx*ny] = A*(((J_x[1:ny,1:nx].*Vxshift[1:ny,1:nx]-J_x[1:ny,2:nx+1].*Vxshift[1:ny,2:nx+1]
+    du[(nx*ny+1):2nx*ny] .= A*(((J_x[1:ny,1:nx].*Vxshift[1:ny,1:nx]-J_x[1:ny,2:nx+1].*Vxshift[1:ny,2:nx+1]
                                -coupling*(T_x[1:ny,1:nx]-T_x[1:ny,2:nx+1]))/dy
                              +(J_y[1:ny,1:nx].*Vyshift[1:ny,1:nx]-J_y[2:ny+1,1:nx].*Vyshift[2:ny+1,1:nx]
-                               -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx))[:]-A*du[1:nx*ny].*V[:]
+                               -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx))[:].-A*du[1:nx*ny].*V[:]
 end
