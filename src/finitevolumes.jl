@@ -78,6 +78,8 @@ function flux!(du,u,A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
                                -coupling*(T_y[1:ny,1:nx]-T_y[2:ny+1,1:nx]))/dx))[:].-A*du[1:nx*ny].*V[:]
 end
 
+flux!(du,u,params,t) = flux!(du,u,params...)
+
 # function flux_jacobian!(jac,du,u,A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
 #     # TODO Make T0 a vector.
 #     ny,nx = size(V_x)[1],size(V_x)[2]
@@ -107,3 +109,48 @@ end
 #
 #     density_flux, temperature_flux
 # end
+
+function get_variables(mesh,u::AbstractArray{elT,N},params) where elT where N
+    xx,yy = mesh
+    nx,ny = length(xx),length(yy)
+    dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
+    P = fill(zero(elT),0:ny+1,0:nx+1)
+    T = fill(zero(elT),0:ny+1,0:nx+1)
+
+    P[1:ny,1:nx] .= reshape(u[1:nx*ny],ny,nx)
+    # Confining boundary conditions in the y direction.
+    P[0,0:nx+1] = zero(elT)
+    P[ny+1,0:nx+1] = zero(elT)
+    # Periodicity in the x direction.
+    P[1:ny,0] .= P[1:ny,nx]
+    P[1:ny,nx+1] .= P[1:ny,1]
+    # Dirichlet boundary conditions in the y direction.
+    T0 = params[3]
+    T[0,0:nx+1] = T0
+    T[ny+1,0:nx+1] = T0
+    # Periodicity in the x direction.
+    T[1:ny,0] .= T[1:ny,nx]
+    T[1:ny,nx+1] .= T[1:ny,1]
+
+    P,T
+end
+
+function density_current(mesh,u::AbstractArray{elT,N},params) where elT where N
+    A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy = params
+    xx,yy = mesh
+    nx = length(xx)
+    ny = length(yy)
+
+    P,T = get_variables(mesh,u,params)
+
+    J_x = Array{elT}(ny,nx)
+    J_y = Array{elT}(ny,nx)
+    for i in 1:nx, j in 1:ny
+        J_x[j,i] = -( (P[j,i-1]+P[j,i])*V_x[j,i]
+                     +(T[j,i-1]+T[j,i])*(P[j,i]-P[j,i-1])/dx)/2
+        J_y[j,i] = -( (P[j-1,i]+P[j,i])*V_y[j,i]
+                     +(T[j-1,i]+T[j,i])*(P[j,i]-P[j-1,i])/dy)/2
+    end
+
+    J_x,J_y
+end
