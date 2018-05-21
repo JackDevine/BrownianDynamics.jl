@@ -13,10 +13,12 @@ export # Types.
        create_initial_conditions,
        get_variables,
        density_current,
-       find_steady!,
+       evolve_to_steady_state!,
+       solve_steady_state,
        spectral_rhs!,
        conv,
-       conv_mat
+       conv_mat,
+       real_current
 
 
 include("finitevolumes.jl")

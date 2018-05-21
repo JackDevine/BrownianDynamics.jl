@@ -27,17 +27,44 @@ function create_initial_conditions(mesh,density_init,temperature_init)
     u0 = [P[:];T[:]]
 end
 
-function find_steady!(integrator,params;steadytol=1e-3,maxiters=5000)
-    du = Array{eltype(integrator.u)}(integrator.sizeu)
+function evolve_to_steady_state!(integrator,params;steadytol=1e-3,maxiters=500,
+                                                   convergence_warning=true)
+    du = Array{eltype(integrator.u)}(size(integrator.u))
     iters = 0
     # TODO right now du will be calculated somewhere in the step! function.
     # I then recalculate du, which is a bit of a waste.
-    while ((norm(integrator.f(du,integrator.u,params,0))/integrator.sizeu[1] > steadytol)
+    while ((norm(integrator.f(du,integrator.u,params,0))/size(integrator.u)[1] > steadytol)
             && (iters < maxiters))
         step!(integrator)
         iters += 1
     end
-    iters >= maxiters && println("Maximum numbers of iterations reached, exiting.")
+    (iters >= maxiters && convergence_warning) && println("Maximum number of iterations reached, exiting.")
 
     integrator.u
+end
+
+function solve_steady_state(integrator,params::SpectralParameters{T};
+                            steadytol=1e-3,maxiters=50) where T <: Number
+    u = copy(integrator.u)
+    nn = round(Int,length(u)/2)
+    nd2 = round(Int,nn/2)
+    du = similar(u)
+    # We will use the boundary jacobian to assert that `u[nd2+1] == 1`.
+    boundary_jac = zeros(eltype(u),2nn)
+    boundary_jac[nd2+1] = 1
+    jac = Array{eltype(u)}(length(u),length(u))
+    du[:] .= integrator.f(du,u,params,0)
+    jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
+    # Newton's method.
+    iters = 0
+    while (norm([du;u[nd2+1]-1])/nn>steadytol) && (iters<maxiters)
+        du[:] .= integrator.f(du,u,params,0)
+        jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
+
+        u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;u[nd2+1]-1])[1:2nn]
+        iters += 1
+    end
+    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+
+    u
 end
