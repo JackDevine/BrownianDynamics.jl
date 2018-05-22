@@ -4,7 +4,9 @@ function create_params(mesh,potential,A,coupling,T0)
     ny = length(yy)
     dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
 
-    # Discrete potential. We will need the potential at the center of the volumes as well as the edges.
+    # Discrete potential. We will need the potential at the center of the volumes, as well
+    # as the edges. The gradient of the potential only needs to be evaluated at the edges
+    # of the cells.
     V = [potential(x,y) for y in yy, x in xx]
     V_x = [ForwardDiff.derivative(xp->potential(xp,y),x-0.5dx) for y in yy, x in xx]
     V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for y in yy, x in xx]

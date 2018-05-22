@@ -13,6 +13,7 @@ export # Types.
        create_initial_conditions,
        get_variables,
        density_current,
+       density_flux!,
        evolve_to_steady_state!,
        solve_steady_state,
        spectral_rhs!,
