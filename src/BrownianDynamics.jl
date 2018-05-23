@@ -3,6 +3,7 @@ module BrownianDynamics
 using ForwardDiff
 using DifferentialEquations
 using ToeplitzMatrices
+using OffsetArrays
 using Parameters
 
 export # Types.

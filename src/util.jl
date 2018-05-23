@@ -7,12 +7,16 @@ function create_params(mesh,potential,A,coupling,T0)
     # as the edges. The gradient of the potential only needs to be evaluated at the edges
     # of the cells.
     V = [potential(x,y) for x in xx, y in yy]
-    V_x = [ForwardDiff.derivative(xp->potential(xp,y),x-0.5dx) for x in xx, y in yy]
-    V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for x in xx, y in yy]
+    V_x = [ForwardDiff.derivative(xp->potential(xp,y),x-0.5dx) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
+    V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vxshift = [potential(x-0.5dx,y) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vyshift = [potential(x,y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
+    Pmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
+    Tmat = fill(T0*one(eltype(xx)),0:nx+1,0:ny+1)
+    Jx = Array{eltype(xx)}(nx+1,ny+1)
+    Jy = Array{eltype(xx)}(nx+1,ny+1)
 
-    params = (A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
+    params = (Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 end
 
 function create_initial_conditions(mesh,density_init,temperature_init)
