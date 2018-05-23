@@ -7,11 +7,11 @@ function create_params(mesh,potential,A,coupling,T0)
     # Discrete potential. We will need the potential at the center of the volumes, as well
     # as the edges. The gradient of the potential only needs to be evaluated at the edges
     # of the cells.
-    V = [potential(x,y) for y in yy, x in xx]
-    V_x = [ForwardDiff.derivative(xp->potential(xp,y),x-0.5dx) for y in yy, x in xx]
-    V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for y in yy, x in xx]
-    Vxshift = [potential(x-0.5dx,y) for y in [yy;yy[end]+dy], x in [xx;xx[end]+dx]]
-    Vyshift = [potential(x,y-0.5dy) for y in [yy;yy[end]+dy], x in [xx;xx[end]+dx]]
+    V = [potential(x,y) for x in xx, y in yy]
+    V_x = [ForwardDiff.derivative(xp->potential(xp,y),x-0.5dx) for x in xx, y in yy]
+    V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for x in xx, y in yy]
+    Vxshift = [potential(x-0.5dx,y) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
+    Vyshift = [potential(x,y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
 
     params = (A,coupling,T0,V,Vxshift,Vyshift,V_x,V_y,dx,dy)
 end
@@ -22,9 +22,9 @@ function create_initial_conditions(mesh,density_init,temperature_init)
     ny = length(yy)
     dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
     # Discrete versions of the temperature and the probability.
-    P = [density_init(x,y) for y in yy, x in xx]
+    P = [density_init(x,y) for x in xx, y in yy]
     P /= sum(P)*dx*dy  # Normalize probability.
-    T = [temperature_init(x,y) for y in yy, x in xx]
+    T = [temperature_init(x,y) for x in xx, y in yy]
 
     u0 = [P[:];T[:]]
 end
