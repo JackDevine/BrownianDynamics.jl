@@ -163,17 +163,17 @@ function density_flux!(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
     # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
     diag_p1_indices = diagind(jac,1)  # dPijp1.
     diag_pnx_indices = diagind(jac,nx)  # dPip1j
-    for row in 1:nx*ny
+    for row in 1:nx*ny-1
         i,j = ind2sub((nx,ny),row)
         jac[diag_0_indices[row]] = -(Tmat[i-1,j]+Tmat[i,j-1]+4*Tmat[i,j]+Tmat[i,j+1]+Tmat[i+1,j]+dx*(V_x[i,j]-V_x[i+1,j])+dy*(V_y[i,j]-V_y[i,j+1]))/(2*dx*dy)
     end
     for row in 2:(nx*ny)
-        i,j = ind2sub((nx,ny),row-1)
-        jac[diag_m1_indices[row-1]] = (Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy)/(2*dx*dy)
+        i,j = ind2sub((nx,ny),row)
+        jac[diag_m1_indices[row-1]] = (Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx)/(2*dx*dy)
     end
-    for row in (nx+1):(nx,ny)
-        i,j = ind2sub((ny,nx),row-nx)
-        jac[diag_mnx_indices[row-nx]] = (Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx)/(2*dx*dy)
+    for row in (nx+1):(nx*ny-1)
+        i,j = ind2sub((ny,nx),row)
+        jac[diag_mnx_indices[row-nx]] = (Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy)/(2*dx*dy)
     end
     for row in 1:(nx*ny-1)
         i,j = ind2sub((nx,ny),row)

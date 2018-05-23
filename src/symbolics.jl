@@ -25,7 +25,7 @@ replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]
                 ("V_y_22","V_y[i,j]"),("V_y_21","V_y[i,j-1]"),("V_y_12","V_y[i-1,j]"),
                 ("V_y_23","V_y[i,j+1]"),("V_y_32","V_y[i+1,j]")]
 dP = Array{String}(5)
-for (index,var) in enumerate([P_12,P_21,P_22,P_32,P_23])
+for (index,var) in enumerate([P_22,P_12,P_21,P_32,P_23])
     var = diff(density_flux,var) |> simplify |> string
     for replacement in replacements
         var = replace(var,replacement...)
@@ -46,17 +46,17 @@ diag_mnx_indices = diagind(jac,-nx)  # dPim1j.
 # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
 diag_p1_indices = diagind(jac,1)  # dPijp1.
 diag_pnx_indices = diagind(jac,nx)  # dPip1j
-for row in 1:nx*ny
+for row in 1:nx*ny-1
     i,j = ind2sub((nx,ny),row)
-    jac[diag_0_indices[row]] = $(dP[3])
+    jac[diag_0_indices[row]] = $(dP[1])
 end
 for row in 2:(nx*ny)
-    i,j = ind2sub((nx,ny),row-1)
+    i,j = ind2sub((nx,ny),row)
     jac[diag_m1_indices[row-1]] = $(dP[2])
 end
-for row in (nx+1):(nx,ny)
-    i,j = ind2sub((ny,nx),row-nx)
-    jac[diag_mnx_indices[row-nx]] = $(dP[1])
+for row in (nx+1):(nx*ny-1)
+    i,j = ind2sub((ny,nx),row)
+    jac[diag_mnx_indices[row-nx]] = $(dP[3])
 end
 for row in 1:(nx*ny-1)
     i,j = ind2sub((nx,ny),row)
