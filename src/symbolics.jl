@@ -1,14 +1,9 @@
-
-
 using SymPy
-
 
 @syms(P_12,P_21,P_22,P_32,P_23,T_12,T_21,T_23,T_32,T_22,
       V_x_12,V_x_21,V_x_32,V_x_23,V_x_22,
       V_y_12,V_y_21,V_y_32,V_y_23,V_y_22,real=true)
 @syms Jx_ij Jx_ip1j Jy_ij Jy_ijp1 dx dy real=true
-
-
 
 Jx_ij = -((P_12+P_22)*V_x_22+(T_12+T_22)*(P_22-P_12)/dx)/2
 Jx_ip1j = -((P_22+P_32)*V_x_32+(T_22+T_32)*(P_32-P_22)/dx)/2
@@ -34,40 +29,64 @@ for (index,var) in enumerate([P_22,P_12,P_21,P_32,P_23])
     dP[index] = var
 end
 dP
-
+##
 code =
 """
-ny = length(indices(Tmat)[1])-2
-nx = length(indices(Tmat)[2])-2
-diag_0_indices = diagind(jac,0)  # dPij.
-diag_m1_indices = diagind(jac,-1)  # dPijm1.
-# diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
-diag_mnx_indices = diagind(jac,-nx)  # dPim1j.
-# diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
-diag_p1_indices = diagind(jac,1)  # dPijp1.
-diag_pnx_indices = diagind(jac,nx)  # dPip1j
-for row in 1:nx*ny-1
-    i,j = ind2sub((nx,ny),row)
-    jac[diag_0_indices[row]] = $(dP[1])
+function density_flux!(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
+    ny = length(indices(Tmat)[1])-2
+    nx = length(indices(Tmat)[2])-2
+    diag_0_indices = diagind(jac,0)  # dPij.
+    diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
+    # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
+    diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
+    # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
+    diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+    diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+    diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+    diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+    for row in 1:nx*ny
+        i,j = ind2sub((nx,ny),row)
+        jac[diag_0_indices[row]] = $(dP[1])
+        jac[diag_m1_indices[row]] = $(dP[2])
+        jac[diag_mnx_indices[row]] = $(dP[3])
+        jac[diag_p1_indices[row]] = $(dP[4])
+        jac[diag_pnx_indices[row]] = $(dP[5])
+    end
+    # jac[1:nx:nx*ny,:] = 0
+    # jac[:,1:ny:nx*ny] = 0
+    jac
 end
-for row in 2:(nx*ny)
-    i,j = ind2sub((nx,ny),row)
-    jac[diag_m1_indices[row-1]] = $(dP[2])
-end
-for row in (nx+1):(nx*ny-1)
-    i,j = ind2sub((ny,nx),row)
-    jac[diag_mnx_indices[row-nx]] = $(dP[3])
-end
-for row in 1:(nx*ny-1)
-    i,j = ind2sub((nx,ny),row)
-    jac[diag_p1_indices[row]] = $(dP[4])
-end
-for row in 1:(nx*ny-nx-1)
-    i,j = ind2sub((nx,ny),row)
-    jac[diag_pnx_indices[row]] = $(dP[5])
-end
-jac
 """
+clipboard(code)
+##
+
+# [P_22,P_12,P_21,P_32,P_23]
+code =
+"""
+function density_flux!(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
+    ny = length(indices(Tmat)[1])-2
+    nx = length(indices(Tmat)[2])-2
+    inds = Array{Bool}(9)
+    arrayinds = Array{Int64}(9)
+    for row in 1:nx*ny
+        i,j = ind2sub((nx,ny),row)
+        arrayinds = Int64[sub2ind((nx,ny),ii,jj) for ii in (i-1):(i+1),
+                                                     jj in (j-1):(j+1)]
+        stencil_indices!(inds,i,j,nx)  # TODO make this work for nx != ny.
+        jac[row,arrayinds[inds]] .= [0.0;
+                                     $(dP[2]);
+                                     0.0;
+                                     $(dP[3]);
+                                     $(dP[1]);
+                                     $(dP[4]);
+                                     0.0;
+                                     $(dP[5]);
+                                     0.0][inds]
+    end
+    jac
+end
+"""
+
 clipboard(code)
 # ny = length(indices(Tmat)[1])-2
 # nx = length(indices(Tmat)[2])-2
