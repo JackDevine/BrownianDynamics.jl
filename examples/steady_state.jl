@@ -99,3 +99,8 @@ integrator = init(prob,TRBDF2(autodiff=false),abstol=1e-10,reltol=1e-10)
     end
     steady_state[:] .= solutions[:,i,1]
 end
+
+##
+using Plots; gr()
+
+heatmap(Jxsum)

@@ -103,6 +103,14 @@ end
 
 flux!(du,u,params,t) = flux!(du,u,params...)
 
+function flux!(::Type{Val{:jac}},jac,u,params,t)
+    jac[1:nx*ny,1:nx*ny] .= density_flux!(Val{:jac},jac[1:nx*ny,1:nx*ny],u,params,t)
+    jac[1:nx*ny,(nx*ny+1):end] .= density_coupling!(Val{:jac},jac[1:nx*ny,1:nx*ny],u,params,t)
+    jac[(nx*ny+1):end,1:nx*ny] .= temperature_coupling!(Val{:jac},jac[1:nx*ny,1:nx*ny],u,params,t)
+    jac[(nx*ny+1):end,(nx*ny+1):end] .= temperature_flux!(Val{:jac},jac[1:nx*ny,1:nx*ny],u,params,t)
+    jac
+end
+
 function temperature_gradients!(T_x,T_y,Tmat,dx,dy)
     nx,ny = length(indices(Tmat)[1])-2,length(indices(Tmat)[2])-2
     for j in 1:ny+1, i in 1:nx+1
