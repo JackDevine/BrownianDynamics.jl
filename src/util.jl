@@ -73,3 +73,31 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
 
     u
 end
+
+# TODO sure that we can find out whether the discretisation is FVM via dispatch.
+function solve_steady_state_uncoupled(integrator,params;
+                                      steadytol=1e-3,maxiters=10,print_residual=true)
+    Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy = params
+    u = copy(integrator.u)
+    nn = round(Int,length(u))
+
+    du = similar(u)
+    # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
+    boundary_jac = ones(nn)
+    jac = spzeros(nn,nn)
+    du[:] .= integrator.f(du,u,params,0)
+    jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
+    # Newton's method.
+    iters = 0
+    while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
+        jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
+
+        du[:] .= integrator.f(du,u,params,0)
+        u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u)*dx*dy-1])[1:nx*ny]
+        iters += 1
+    end
+    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+    print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
+
+    u
+end

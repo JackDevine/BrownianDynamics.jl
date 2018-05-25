@@ -3,7 +3,7 @@ using SymPy
 @syms(P_12,P_21,P_22,P_32,P_23,T_12,T_21,T_23,T_32,T_22,
       V_x_12,V_x_21,V_x_32,V_x_23,V_x_22,
       V_y_12,V_y_21,V_y_32,V_y_23,V_y_22,real=true)
-@syms Jx_ij Jx_ip1j Jy_ij Jy_ijp1 dx dy real=true
+@syms Vxs_ij Vxs_ip1j Jx_ij Jx_ip1j Jy_ij Jy_ijp1 dx dy A C real=true
 
 Jx_ij = -((P_12+P_22)*V_x_22+(T_12+T_22)*(P_22-P_12)/dx)/2
 Jx_ip1j = -((P_22+P_32)*V_x_32+(T_22+T_32)*(P_32-P_22)/dx)/2
@@ -11,7 +11,13 @@ Jx_ip1j = -((P_22+P_32)*V_x_32+(T_22+T_32)*(P_32-P_22)/dx)/2
 Jy_ij = -((P_21+P_22)*V_y_22+(T_21+T_22)*(P_22-P_21)/dy)/2
 Jy_ijp1 = -((P_22+P_23)*V_y_23+(T_22+T_23)*(P_23-P_22)/dy)/2
 
+T_x_ij = -(T22-T12)/dx
+T_x_ip1j = -()/dx
+
 density_flux = (Jx_ij-Jx_ip1j)/dy+(Jy_ij-Jy_ijp1)/dx
+
+energy_flux = A*((Jx_ij*Vxs_ij-Jx_ip1j*Vxs_ip1j-C*(T_x_ij-T_x_ip1j))/dy
+                 +((Jy_ij*Vys_ij-Jy_ip1j*Vys_ip1j-C*(T_x_ij-T_x_ip1j)))/dx)
 
 replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]"),
                 ("T_23","Tmat[i,j+1]"),("T_32","Tmat[i+1,j]"),
@@ -30,7 +36,7 @@ for (index,var) in enumerate([P_22,P_12,P_21,P_32,P_23])
 end
 dP
 ##
-code =
+density_flux_code =
 """
 function density_flux!(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
     ny = length(indices(Tmat)[1])-2
@@ -52,8 +58,14 @@ function density_flux!(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
         jac[diag_p1_indices[row]] = $(dP[4])
         jac[diag_pnx_indices[row]] = $(dP[5])
     end
-    # jac[1:nx:nx*ny,:] = 0
-    # jac[:,1:ny:nx*ny] = 0
+    jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+    jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+    jac[diagind(jac,-1)[nx:nx:end]] = 0
+    jac[diagind(jac,1)[nx:nx:end]] = 0
+    jac[diagind(jac,nx*ny-1)] = 0
+    jac[diagind(jac,-nx*ny+1)] = 0
+    jac[diagind(jac,nx*ny-nx)] = 0
+    jac[diagind(jac,-nx*ny+nx)] = 0
     jac
 end
 """
