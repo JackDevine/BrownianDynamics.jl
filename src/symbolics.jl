@@ -1,5 +1,37 @@
-using SymPy
+#=
+This script will create code for the Jacobian of the finite volume discretization. If you
+run this script, then the code which is commented out at the bottom of the script will be
+placed into your clipboard. The code can then be used to calculate Jacobians. We have four
+functions that get created,
+density_flux!             The density part of the flux differentiated w.r.t. P_ij
+density_coupling!         The density part of the flux differentiated w.r.t. T_ij
+temperature_coupling!     The density part of the flux differentiated w.r.t. P_ij
+temperature_flux!         The density part of the flux differentiated w.r.t. T_ij
 
+The finite volume discretization is local, so the flux at a given point (i,j) only depends
+on the variables at that point and the points surrounding it. We use a five point stencil
+of the form:
+            u_i,j-1
+    u_i-1,j u_ij   u_i+1j
+            u_ij+1
+Throughout the symbolic section, we will denote points on this stencil as follows:
+         u_21
+    u_12 u_22 u_23
+         u_32
+We will have to calculate the flux of the probability distribution and the flux of the
+temperature distribution. Both of these depend on the probability distribution, the
+temperature and the potential. We have the following notations for discretised variables:
+
+P_xx:    The discrete probability distribution at stencil point xx.
+T_xx:    The discrete temperature at stencil point xx.
+V_xx:    The x derivative of the potential at the left edge of the xx cell.
+V_xx:    The x derivative of the potential at the bottom edge of the xx cell.
+Vxs_ij:  The potential at the left edge of the i,j cell. (i.e. the x shifted potential.)
+Vys_ij:  The potential at the bottom edge of the i,j cell. (i.e. the y shifted potential.)
+=#
+
+using SymPy
+# Create the symbolic variables.
 @syms(P_12,P_21,P_22,P_32,P_23,T_12,T_21,T_23,T_32,T_22,
       V_x_12,V_x_21,V_x_32,V_x_23,V_x_22,
       V_y_12,V_y_21,V_y_32,V_y_23,V_y_22,real=true)
@@ -13,14 +45,14 @@ Jy_ijp1 = -((P_22+P_23)*V_y_23+(T_22+T_23)*(P_23-P_22)/dy)/2
 
 T_x_ij = -(T_22-T_12)/dx
 T_x_ip1j = -(T_23-T_22)/dx
-
+# The definitions for the fluxes are based on the fluxes from the function
+# `flux!(du,u,params...)`.
 density_flux = (Jx_ij-Jx_ip1j)/dy+(Jy_ij-Jy_ijp1)/dx
-
 energy_flux = ((Jx_ij*Vxs_ij-Jx_ip1j*Vxs_ip1j-C*(T_x_ij-T_x_ip1j))/dy
                  +((Jy_ij*Vys_ij-Jy_ip1j*Vys_ip1j-C*(T_x_ij-T_x_ip1j)))/dx)
-
 temperature_flux = A*(energy_flux-density_flux)
-
+# Now we want to turn the symbolic expressions into Julia code. To do this, we will
+# replace the stencil variables with their corresponding array variables.
 replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]"),
                 ("T_23","Tmat[i,j+1]"),("T_32","Tmat[i+1,j]"),
                 ("P_22","Pmat[i,j]"),("P_21","Pmat[i,j-1]"),("P_12","Pmat[i-1,j]"),
@@ -29,8 +61,15 @@ replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]
                 ("V_x_23","V_x[i,j+1]"),("V_x_32","V_x[i+1,j]"),
                 ("V_y_22","V_y[i,j]"),("V_y_21","V_y[i,j-1]"),("V_y_12","V_y[i-1,j]"),
                 ("V_y_23","V_y[i,j+1]"),("V_y_32","V_y[i+1,j]"),
+                ("Vxs_ij","Vxshift[i,j]"),("Vxs_ip1j","Vxshift[i+1,j]"),
+                ("Vys_ij","Vyshift[i,j]"),("Vys_ijp1","Vyshift[i,j+1]"),
                 ("C","coupling")]
-##
+# These stencils correspond to the functions:
+#    density_flux!
+#    density_coupling!
+#    temperature_coupling!
+#    temperature_flux!
+
 density_stencil = Array{String}(5)
 density_coupling_stencil = Array{String}(5)
 temperature_coupling_stencil = Array{String}(5)
@@ -62,7 +101,8 @@ for (index,var) in enumerate([T_22,T_12,T_21,T_32,T_23])
     temperature_stencil[index] = dT_T
 end
 
-function_names = ["density_flux!","density_coupling!","temperature_coupling!","temperature_flux!"]
+function_names = ["density_flux!","density_coupling!",
+                  "temperature_coupling!","temperature_flux!"]
 stencils = [density_stencil,density_coupling_stencil,
             temperature_coupling_stencil,temperature_stencil]
 code = Array{String}(4)
@@ -71,7 +111,7 @@ for i in 1:4
     stencil = stencils[i]
     code[i] =
     """
-    function $(function_name)(::Type{Val{:jac}},jac,P,Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
+    function $(function_name)(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
         ny = length(indices(Tmat)[1])-2
         nx = length(indices(Tmat)[2])-2
         diag_0_indices = diagind(jac,0)  # dPij.
@@ -101,5 +141,142 @@ for i in 1:4
         jac[diagind(jac,-nx*ny+nx)] = 0
         jac
     end
+
+    $(function_name)(::Type{Val{:jac}},jac,P,params,t) = $(function_name)(Val{:jac},jac,P,params...)
     """
 end
+
+join(code,"\n") |> clipboard
+## Results.
+
+# function density_flux!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+#     ny = length(indices(Tmat)[1])-2
+#     nx = length(indices(Tmat)[2])-2
+#     diag_0_indices = diagind(jac,0)  # dPij.
+#     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
+#     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
+#     diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
+#     # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     for row in 1:nx*ny
+#         i,j = ind2sub((nx,ny),row)
+#         jac[diag_0_indices[row]] = -(Tmat[i-1,j]+Tmat[i,j-1]+4*Tmat[i,j]+Tmat[i,j+1]+Tmat[i+1,j]+dx*(V_x[i,j]-V_x[i+1,j])+dy*(V_y[i,j]-V_y[i,j+1]))/(2*dx*dy)
+#         jac[diag_m1_indices[row]] = (Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx)/(2*dx*dy)
+#         jac[diag_mnx_indices[row]] = (Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy)/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = (Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx)/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = (Tmat[i,j]+Tmat[i,j+1]+V_y[i,j+1]*dy)/(2*dx*dy)
+#     end
+#     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+#     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+#     jac[diagind(jac,-1)[nx:nx:end]] = 0
+#     jac[diagind(jac,1)[nx:nx:end]] = 0
+#     jac[diagind(jac,nx*ny-1)] = 0
+#     jac[diagind(jac,-nx*ny+1)] = 0
+#     jac[diagind(jac,nx*ny-nx)] = 0
+#     jac[diagind(jac,-nx*ny+nx)] = 0
+#     jac
+# end
+#
+# density_flux!(::Type{Val{:jac}},jac,P,params,t) = density_flux!(Val{:jac},jac,P,params...)
+#
+# function density_coupling!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+#     ny = length(indices(Tmat)[1])-2
+#     nx = length(indices(Tmat)[2])-2
+#     diag_0_indices = diagind(jac,0)  # dPij.
+#     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
+#     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
+#     diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
+#     # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     for row in 1:nx*ny
+#         i,j = ind2sub((nx,ny),row)
+#         jac[diag_0_indices[row]] = (Pmat[i-1,j]+Pmat[i,j-1]-4*Pmat[i,j]+Pmat[i,j+1]+Pmat[i+1,j])/(2*dx*dy)
+#         jac[diag_m1_indices[row]] = (Pmat[i-1,j]-Pmat[i,j])/(2*dx*dy)
+#         jac[diag_mnx_indices[row]] = (Pmat[i,j-1]-Pmat[i,j])/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = (-Pmat[i,j]+Pmat[i+1,j])/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = (-Pmat[i,j]+Pmat[i,j+1])/(2*dx*dy)
+#     end
+#     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+#     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+#     jac[diagind(jac,-1)[nx:nx:end]] = 0
+#     jac[diagind(jac,1)[nx:nx:end]] = 0
+#     jac[diagind(jac,nx*ny-1)] = 0
+#     jac[diagind(jac,-nx*ny+1)] = 0
+#     jac[diagind(jac,nx*ny-nx)] = 0
+#     jac[diagind(jac,-nx*ny+nx)] = 0
+#     jac
+# end
+#
+# density_coupling!(::Type{Val{:jac}},jac,P,params,t) = density_coupling!(Val{:jac},jac,P,params...)
+#
+# function temperature_coupling!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+#     ny = length(indices(Tmat)[1])-2
+#     nx = length(indices(Tmat)[2])-2
+#     diag_0_indices = diagind(jac,0)  # dPij.
+#     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
+#     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
+#     diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
+#     # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     for row in 1:nx*ny
+#         i,j = ind2sub((nx,ny),row)
+#         jac[diag_0_indices[row]] = A*(Tmat[i-1,j]+Tmat[i,j-1]+4*Tmat[i,j]+Tmat[i,j+1]+Tmat[i+1,j]-Vxshift[i,j]*(Tmat[i-1,j]+Tmat[i,j]+V_x[i,j]*dx)-Vxshift[i+1,j]*(Tmat[i,j]+Tmat[i+1,j]-V_x[i+1,j]*dx)-Vyshift[i,j]*(Tmat[i,j-1]+Tmat[i,j]+V_y[i,j]*dy)+dx*(V_x[i,j]-V_x[i+1,j])+dy*(V_y[i,j]-V_y[i,j+1]))/(2*dx*dy)
+#         jac[diag_m1_indices[row]] = -A*(Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx-Vxshift[i,j]*(Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx))/(2*dx*dy)
+#         jac[diag_mnx_indices[row]] = -A*(Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy-Vyshift[i,j]*(Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy))/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = -A*(Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx-Vxshift[i+1,j]*(Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx))/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = -A*(Tmat[i,j]+Tmat[i,j+1]+V_y[i,j+1]*dy)/(2*dx*dy)
+#     end
+#     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+#     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+#     jac[diagind(jac,-1)[nx:nx:end]] = 0
+#     jac[diagind(jac,1)[nx:nx:end]] = 0
+#     jac[diagind(jac,nx*ny-1)] = 0
+#     jac[diagind(jac,-nx*ny+1)] = 0
+#     jac[diagind(jac,nx*ny-nx)] = 0
+#     jac[diagind(jac,-nx*ny+nx)] = 0
+#     jac
+# end
+#
+# temperature_coupling!(::Type{Val{:jac}},jac,P,params,t) = temperature_coupling!(Val{:jac},jac,P,params...)
+#
+# function temperature_flux!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+#     ny = length(indices(Tmat)[1])-2
+#     nx = length(indices(Tmat)[2])-2
+#     diag_0_indices = diagind(jac,0)  # dPij.
+#     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
+#     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
+#     diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
+#     # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
+#     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
+#     for row in 1:nx*ny
+#         i,j = ind2sub((nx,ny),row)
+#         jac[diag_0_indices[row]] = A*(4*coupling*dy+Vyshift[i,j]*dx*(Pmat[i,j-1]-Pmat[i,j])-dx*(-4*coupling+Pmat[i-1,j]+Pmat[i,j-1]-4*Pmat[i,j]+Pmat[i,j+1]+Pmat[i+1,j]-Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j])+Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j])))/(2*dx^2*dy)
+#         jac[diag_m1_indices[row]] = -A*(2*coupling*dy+dx*(2*coupling+Pmat[i-1,j]-Pmat[i,j]-Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j])))/(2*dx^2*dy)
+#         jac[diag_mnx_indices[row]] = A*(-Pmat[i,j-1]+Pmat[i,j]+Vyshift[i,j]*(Pmat[i,j-1]-Pmat[i,j]))/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = -A*(-Pmat[i,j]+Pmat[i+1,j]+Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j]))/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = -A*(2*coupling*dy+dx*(2*coupling-Pmat[i,j]+Pmat[i,j+1]))/(2*dx^2*dy)
+#     end
+#     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+#     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+#     jac[diagind(jac,-1)[nx:nx:end]] = 0
+#     jac[diagind(jac,1)[nx:nx:end]] = 0
+#     jac[diagind(jac,nx*ny-1)] = 0
+#     jac[diagind(jac,-nx*ny+1)] = 0
+#     jac[diagind(jac,nx*ny-nx)] = 0
+#     jac[diagind(jac,-nx*ny+nx)] = 0
+#     jac
+# end
+#
+# temperature_flux!(::Type{Val{:jac}},jac,P,params,t) = temperature_flux!(Val{:jac},jac,P,params...)
