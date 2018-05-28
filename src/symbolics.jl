@@ -22,10 +22,12 @@ We will have to calculate the flux of the probability distribution and the flux 
 temperature distribution. Both of these depend on the probability distribution, the
 temperature and the potential. We have the following notations for discretised variables:
 
-P_xx:    The discrete probability distribution at stencil point xx.
-T_xx:    The discrete temperature at stencil point xx.
-V_xx:    The x derivative of the potential at the left edge of the xx cell.
-V_xx:    The x derivative of the potential at the bottom edge of the xx cell.
+P_ij:    The discrete probability distribution at stencil point i,j.
+T_ij:    The discrete temperature at stencil point i,j.
+T_x_ij:  The x gradient of the temperature at the left edge of the i,j cell.
+T_y_ij:  The y gradient of the temperature at the bottom edge of the i,j cell.
+V_x_ij:    The x derivative of the potential at the left edge of the i,j cell.
+V_y_ij:    The y derivative of the potential at the bottom edge of the i,j cell.
 Vxs_ij:  The potential at the left edge of the i,j cell. (i.e. the x shifted potential.)
 Vys_ij:  The potential at the bottom edge of the i,j cell. (i.e. the y shifted potential.)
 =#
@@ -34,8 +36,9 @@ using SymPy
 # Create the symbolic variables.
 @syms(P_12,P_21,P_22,P_32,P_23,T_12,T_21,T_23,T_32,T_22,
       V_x_12,V_x_21,V_x_32,V_x_23,V_x_22,
-      V_y_12,V_y_21,V_y_32,V_y_23,V_y_22,real=true)
-@syms Vxs_ij Vxs_ip1j Vys_ij Vys_ip1j Jx_ij Jx_ip1j Jy_ij Jy_ip1j Jy_ijp1 dx dy A C real=true
+      V_y_12,V_y_21,V_y_32,V_y_23,V_y_22,V_22,real=true)
+@syms(Vxs_ij,Vxs_ip1j,Vys_ij,Vys_ijp1,Jx_ij,Jx_ip1j,
+      Jy_ij,Jy_ip1j,Jy_ijp1,dx,dy,A,C,real=true)
 
 Jx_ij = -((P_12+P_22)*V_x_22+(T_12+T_22)*(P_22-P_12)/dx)/2
 Jx_ip1j = -((P_22+P_32)*V_x_32+(T_22+T_32)*(P_32-P_22)/dx)/2
@@ -43,14 +46,16 @@ Jx_ip1j = -((P_22+P_32)*V_x_32+(T_22+T_32)*(P_32-P_22)/dx)/2
 Jy_ij = -((P_21+P_22)*V_y_22+(T_21+T_22)*(P_22-P_21)/dy)/2
 Jy_ijp1 = -((P_22+P_23)*V_y_23+(T_22+T_23)*(P_23-P_22)/dy)/2
 
-T_x_ij = -(T_22-T_12)/dx
-T_x_ip1j = -(T_23-T_22)/dx
+T_x_ij = (T_22-T_12)/dx
+T_x_ip1j = (T_32-T_22)/dx
+T_y_ij = (T_22-T_21)/dy
+T_y_ijp1 = (T_23-T_22)/dy
 # The definitions for the fluxes are based on the fluxes from the function
 # `flux!(du,u,params...)`.
 density_flux = (Jx_ij-Jx_ip1j)/dy+(Jy_ij-Jy_ijp1)/dx
 energy_flux = ((Jx_ij*Vxs_ij-Jx_ip1j*Vxs_ip1j-C*(T_x_ij-T_x_ip1j))/dy
-                 +((Jy_ij*Vys_ij-Jy_ip1j*Vys_ip1j-C*(T_x_ij-T_x_ip1j)))/dx)
-temperature_flux = A*(energy_flux-density_flux)
+                 +((Jy_ij*Vys_ij-Jy_ijp1*Vys_ijp1-C*(T_y_ij-T_y_ijp1)))/dx)
+temperature_flux = A*(energy_flux-density_flux*V_22)
 # Now we want to turn the symbolic expressions into Julia code. To do this, we will
 # replace the stencil variables with their corresponding array variables.
 replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]"),
@@ -61,15 +66,15 @@ replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]
                 ("V_x_23","V_x[i,j+1]"),("V_x_32","V_x[i+1,j]"),
                 ("V_y_22","V_y[i,j]"),("V_y_21","V_y[i,j-1]"),("V_y_12","V_y[i-1,j]"),
                 ("V_y_23","V_y[i,j+1]"),("V_y_32","V_y[i+1,j]"),
-                ("Vxs_ij","Vxshift[i,j]"),("Vxs_ip1j","Vxshift[i+1,j]"),
-                ("Vys_ij","Vyshift[i,j]"),("Vys_ijp1","Vyshift[i,j+1]"),
+                ("Vxs_ip1j","Vxshift[i+1,j]"),("Vxs_ij","Vxshift[i,j]"),
+                ("Vys_ijp1","Vyshift[i,j+1]"),("Vys_ij","Vyshift[i,j]"),
+                ("V_22","V[i,j]"),
                 ("C","coupling")]
 # These stencils correspond to the functions:
 #    density_flux!
 #    density_coupling!
 #    temperature_coupling!
 #    temperature_flux!
-
 density_stencil = Array{String}(5)
 density_coupling_stencil = Array{String}(5)
 temperature_coupling_stencil = Array{String}(5)
@@ -114,31 +119,72 @@ for i in 1:4
     function $(function_name)(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
         ny = length(indices(Tmat)[1])-2
         nx = length(indices(Tmat)[2])-2
+        Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
+        # Periodicity in the x direction.
+        Pmat[0,1:ny] .= Pmat[nx,1:ny]
+        Pmat[nx+1,1:ny] .= Pmat[1,1:ny]
+
+        Tmat[1:nx,1:ny] .= reshape(u[(nx*ny+1):end],nx,ny)
+        # Periodicity in the x direction.
+        Tmat[0,1:ny] .= Tmat[nx,1:ny]
+        Tmat[nx+1,1:ny] .= Tmat[1,1:ny]
+
         diag_0_indices = diagind(jac,0)  # dPij.
         diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
-        # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
         diag_mnx_indices = [diagind(jac,nx*ny-nx);diagind(jac,-nx)]  # dPim1j.
-        # diag_mnxp1_indices = diagind(jac,-nx)  # dPim1jp1.
-        diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
-        diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
         diag_p1_indices = [diagind(jac,1);diagind(jac,-nx*ny+1)]  # dPijp1.
         diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
         for row in 1:nx*ny
             i,j = ind2sub((nx,ny),row)
-            jac[diag_0_indices[row]] = $(stencil[1])
-            jac[diag_m1_indices[row]] = $(stencil[2])
-            jac[diag_mnx_indices[row]] = $(stencil[3])
-            jac[diag_p1_indices[row]] = $(stencil[4])
-            jac[diag_pnx_indices[row]] = $(stencil[5])
+            if 1<i<nx && 1<j<ny
+                jac[diag_0_indices[row]] = $(stencil[1])
+                jac[diag_m1_indices[row]] = $(stencil[2])
+                jac[diag_mnx_indices[row]] = $(stencil[3])
+                jac[diag_p1_indices[row]] = $(stencil[4])
+                jac[diag_pnx_indices[row]] = $(stencil[5])
+            elseif i==1
+                jac[diag_0_indices[row]] = $(stencil[1])
+                jac[diag_m1_indices[row]] = $(stencil[2])
+                jac[diag_mnx_indices[row+nx-1]] = $(stencil[3])
+                jac[diag_p1_indices[row]] = $(stencil[4])
+                jac[diag_pnx_indices[row]] = $(stencil[5])
+            elseif i==nx
+                jac[diag_0_indices[row]] = $(stencil[1])
+                jac[diag_m1_indices[row]] = $(stencil[2])
+                jac[diag_mnx_indices[row]] = $(stencil[3])
+                jac[diag_p1_indices[row]] = $(stencil[4])
+                jac[diag_pnx_indices[row]-nx] += $(stencil[5])
+            elseif j==1
+                jac[diag_0_indices[row]] = $(stencil[1])
+                jac[diag_m1_indices[row]] = 0
+                jac[diag_mnx_indices[row]] = $(stencil[3])
+                jac[diag_p1_indices[row]] = $(stencil[4])
+                jac[diag_pnx_indices[row]] = $(stencil[5])
+            elseif j==ny
+                jac[diag_0_indices[row]] = $(stencil[1])
+                jac[diag_m1_indices[row]] = $(stencil[2])
+                jac[diag_mnx_indices[row]] = $(stencil[3])
+                jac[diag_p1_indices[row]] = 0
+                jac[diag_pnx_indices[row]] = $(stencil[5])
+            end
         end
-        jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
-        jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
-        jac[diagind(jac,-1)[nx:nx:end]] = 0
-        jac[diagind(jac,1)[nx:nx:end]] = 0
-        jac[diagind(jac,nx*ny-1)] = 0
-        jac[diagind(jac,-nx*ny+1)] = 0
-        jac[diagind(jac,nx*ny-nx)] = 0
-        jac[diagind(jac,-nx*ny+nx)] = 0
+        # arrayinds = Array{Int64}(5)
+        # for row in 1:nx*ny
+        #     i,j = ind2sub((nx,ny),row)
+        #     arrayinds[:] .= [diag_0_indices[row],diag_m1_indices[row],
+        #                     diag_mnx_indices[row],diag_p1_indices[row],
+        #                     diag_pnx_indices[row]]
+        #     jac[arrayinds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
+        #                               $(stencil[4]),$(stencil[5])]
+        # end
+        # jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
+        # jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
+        # jac[diagind(jac,-1)[nx:nx:end]] = 0
+        # jac[diagind(jac,1)[nx:nx:end]] = 0
+        # jac[diagind(jac,nx*ny-1)] = 0
+        # jac[diagind(jac,-nx*ny+1)] = 0
+        # jac[diagind(jac,nx*ny-nx)] = 0
+        # jac[diagind(jac,-nx*ny+nx)] = 0
         jac
     end
 
@@ -152,6 +198,16 @@ join(code,"\n") |> clipboard
 # function density_flux!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 #     ny = length(indices(Tmat)[1])-2
 #     nx = length(indices(Tmat)[2])-2
+#     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
+#     # Periodicity in the x direction.
+#     Pmat[0,1:ny] .= Pmat[nx,1:ny]
+#     Pmat[nx+1,1:ny] .= Pmat[1,1:ny]
+#
+#     Tmat[1:nx,1:ny] .= reshape(u[(nx*ny+1):end],nx,ny)
+#     # Periodicity in the x direction.
+#     Tmat[0,1:ny] .= Tmat[nx,1:ny]
+#     Tmat[nx+1,1:ny] .= Tmat[1,1:ny]
+#
 #     diag_0_indices = diagind(jac,0)  # dPij.
 #     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
 #     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
@@ -185,6 +241,16 @@ join(code,"\n") |> clipboard
 # function density_coupling!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 #     ny = length(indices(Tmat)[1])-2
 #     nx = length(indices(Tmat)[2])-2
+#     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
+#     # Periodicity in the x direction.
+#     Pmat[0,1:ny] .= Pmat[nx,1:ny]
+#     Pmat[nx+1,1:ny] .= Pmat[1,1:ny]
+#
+#     Tmat[1:nx,1:ny] .= reshape(u[(nx*ny+1):end],nx,ny)
+#     # Periodicity in the x direction.
+#     Tmat[0,1:ny] .= Tmat[nx,1:ny]
+#     Tmat[nx+1,1:ny] .= Tmat[1,1:ny]
+#
 #     diag_0_indices = diagind(jac,0)  # dPij.
 #     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
 #     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
@@ -218,6 +284,16 @@ join(code,"\n") |> clipboard
 # function temperature_coupling!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 #     ny = length(indices(Tmat)[1])-2
 #     nx = length(indices(Tmat)[2])-2
+#     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
+#     # Periodicity in the x direction.
+#     Pmat[0,1:ny] .= Pmat[nx,1:ny]
+#     Pmat[nx+1,1:ny] .= Pmat[1,1:ny]
+#
+#     Tmat[1:nx,1:ny] .= reshape(u[(nx*ny+1):end],nx,ny)
+#     # Periodicity in the x direction.
+#     Tmat[0,1:ny] .= Tmat[nx,1:ny]
+#     Tmat[nx+1,1:ny] .= Tmat[1,1:ny]
+#
 #     diag_0_indices = diagind(jac,0)  # dPij.
 #     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
 #     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
@@ -229,11 +305,11 @@ join(code,"\n") |> clipboard
 #     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
 #     for row in 1:nx*ny
 #         i,j = ind2sub((nx,ny),row)
-#         jac[diag_0_indices[row]] = A*(Tmat[i-1,j]+Tmat[i,j-1]+4*Tmat[i,j]+Tmat[i,j+1]+Tmat[i+1,j]-Vxshift[i,j]*(Tmat[i-1,j]+Tmat[i,j]+V_x[i,j]*dx)-Vxshift[i+1,j]*(Tmat[i,j]+Tmat[i+1,j]-V_x[i+1,j]*dx)-Vyshift[i,j]*(Tmat[i,j-1]+Tmat[i,j]+V_y[i,j]*dy)+dx*(V_x[i,j]-V_x[i+1,j])+dy*(V_y[i,j]-V_y[i,j+1]))/(2*dx*dy)
-#         jac[diag_m1_indices[row]] = -A*(Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx-Vxshift[i,j]*(Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx))/(2*dx*dy)
-#         jac[diag_mnx_indices[row]] = -A*(Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy-Vyshift[i,j]*(Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy))/(2*dx*dy)
-#         jac[diag_p1_indices[row]] = -A*(Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx-Vxshift[i+1,j]*(Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx))/(2*dx*dy)
-#         jac[diag_pnx_indices[row]] = -A*(Tmat[i,j]+Tmat[i,j+1]+V_y[i,j+1]*dy)/(2*dx*dy)
+#         jac[diag_0_indices[row]] = -A*(-V[i,j]*(Tmat[i-1,j]+Tmat[i,j-1]+4*Tmat[i,j]+Tmat[i,j+1]+Tmat[i+1,j]+dx*(V_x[i,j]-V_x[i+1,j])+dy*(V_y[i,j]-V_y[i,j+1]))+Vxshift[i,j]*(Tmat[i-1,j]+Tmat[i,j]+V_x[i,j]*dx)+Vxshift[i+1,j]*(Tmat[i,j]+Tmat[i+1,j]-V_x[i+1,j]*dx)+Vyshift[i,j]*(Tmat[i,j-1]+Tmat[i,j]+V_y[i,j]*dy)+Vyshift[i,j+1]*(Tmat[i,j]+Tmat[i,j+1]-V_y[i,j+1]*dy))/(2*dx*dy)
+#         jac[diag_m1_indices[row]] = -A*(V[i,j]-Vxshift[i,j])*(Tmat[i-1,j]+Tmat[i,j]-V_x[i,j]*dx)/(2*dx*dy)
+#         jac[diag_mnx_indices[row]] = -A*(V[i,j]-Vyshift[i,j])*(Tmat[i,j-1]+Tmat[i,j]-V_y[i,j]*dy)/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = -A*(V[i,j]-Vxshift[i+1,j])*(Tmat[i,j]+Tmat[i+1,j]+V_x[i+1,j]*dx)/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = -A*(V[i,j]-Vyshift[i,j+1])*(Tmat[i,j]+Tmat[i,j+1]+V_y[i,j+1]*dy)/(2*dx*dy)
 #     end
 #     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
 #     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]
@@ -251,6 +327,16 @@ join(code,"\n") |> clipboard
 # function temperature_flux!(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 #     ny = length(indices(Tmat)[1])-2
 #     nx = length(indices(Tmat)[2])-2
+#     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
+#     # Periodicity in the x direction.
+#     Pmat[0,1:ny] .= Pmat[nx,1:ny]
+#     Pmat[nx+1,1:ny] .= Pmat[1,1:ny]
+#
+#     Tmat[1:nx,1:ny] .= reshape(u[(nx*ny+1):end],nx,ny)
+#     # Periodicity in the x direction.
+#     Tmat[0,1:ny] .= Tmat[nx,1:ny]
+#     Tmat[nx+1,1:ny] .= Tmat[1,1:ny]
+#
 #     diag_0_indices = diagind(jac,0)  # dPij.
 #     diag_m1_indices = [diagind(jac,nx*ny-1);diagind(jac,-1)]  # dPijm1.
 #     # diag_mnxm1_indices = diagind(jac,-nx)  # dPim1jm1.
@@ -262,11 +348,11 @@ join(code,"\n") |> clipboard
 #     diag_pnx_indices = [diagind(jac,nx);diagind(jac,-nx*ny+nx)]  # dPip1j
 #     for row in 1:nx*ny
 #         i,j = ind2sub((nx,ny),row)
-#         jac[diag_0_indices[row]] = A*(4*coupling*dy+Vyshift[i,j]*dx*(Pmat[i,j-1]-Pmat[i,j])-dx*(-4*coupling+Pmat[i-1,j]+Pmat[i,j-1]-4*Pmat[i,j]+Pmat[i,j+1]+Pmat[i+1,j]-Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j])+Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j])))/(2*dx^2*dy)
-#         jac[diag_m1_indices[row]] = -A*(2*coupling*dy+dx*(2*coupling+Pmat[i-1,j]-Pmat[i,j]-Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j])))/(2*dx^2*dy)
-#         jac[diag_mnx_indices[row]] = A*(-Pmat[i,j-1]+Pmat[i,j]+Vyshift[i,j]*(Pmat[i,j-1]-Pmat[i,j]))/(2*dx*dy)
-#         jac[diag_p1_indices[row]] = -A*(-Pmat[i,j]+Pmat[i+1,j]+Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j]))/(2*dx*dy)
-#         jac[diag_pnx_indices[row]] = -A*(2*coupling*dy+dx*(2*coupling-Pmat[i,j]+Pmat[i,j+1]))/(2*dx^2*dy)
+#         jac[diag_0_indices[row]] = -A*(8*coupling+V[i,j]*(Pmat[i-1,j]+Pmat[i,j-1]-4*Pmat[i,j]+Pmat[i,j+1]+Pmat[i+1,j])-Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j])+Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j])-Vyshift[i,j]*(Pmat[i,j-1]-Pmat[i,j])+Vyshift[i,j+1]*(Pmat[i,j]-Pmat[i,j+1]))/(2*dx*dy)
+#         jac[diag_m1_indices[row]] = A*(2*coupling-V[i,j]*(Pmat[i-1,j]-Pmat[i,j])+Vxshift[i,j]*(Pmat[i-1,j]-Pmat[i,j]))/(2*dx*dy)
+#         jac[diag_mnx_indices[row]] = A*(2*coupling-V[i,j]*(Pmat[i,j-1]-Pmat[i,j])+Vyshift[i,j]*(Pmat[i,j-1]-Pmat[i,j]))/(2*dx*dy)
+#         jac[diag_p1_indices[row]] = A*(2*coupling+V[i,j]*(Pmat[i,j]-Pmat[i+1,j])-Vxshift[i+1,j]*(Pmat[i,j]-Pmat[i+1,j]))/(2*dx*dy)
+#         jac[diag_pnx_indices[row]] = A*(2*coupling+V[i,j]*(Pmat[i,j]-Pmat[i,j+1])-Vyshift[i,j+1]*(Pmat[i,j]-Pmat[i,j+1]))/(2*dx*dy)
 #     end
 #     jac[diagind(jac,nx-1)[1:nx:end-nx]] .= jac[diagind(jac,-1)[nx:nx:end]]
 #     jac[diagind(jac,-nx+1)[1:nx:end-nx]] .= jac[diagind(jac,1)[nx:nx:end]]

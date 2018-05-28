@@ -12,6 +12,8 @@ function create_params(mesh,potential,A,coupling,T0)
     Vxshift = [potential(x-0.5dx,y) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vyshift = [potential(x,y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Pmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
+    Pmat[0:nx+1,0] = 0
+    Pmat[0:nx+1,ny+1] = 0
     Tmat = fill(T0*one(eltype(xx)),0:nx+1,0:ny+1)
     Jx = Array{eltype(xx)}(nx+1,ny+1)
     Jy = Array{eltype(xx)}(nx+1,ny+1)
@@ -94,6 +96,37 @@ function solve_steady_state_uncoupled(integrator,params;
 
         du[:] .= integrator.f(du,u,params,0)
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u)*dx*dy-1])[1:nx*ny]
+        iters += 1
+    end
+    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+    print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
+
+    u
+end
+
+function solve_steady_state(integrator,params::Tuple;
+                            steadytol=1e-3,maxiters=10,print_residual=true)
+    Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+    u = copy(integrator.u)
+    nn = round(Int,length(u)/2)
+    nx = round(Int,sqrt(nn))
+
+    du = similar(u)
+    # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
+    boundary_jac = zeros(2nn)
+    boundary_jac[1:nn] = one(eltype(u))
+    # We use finite differences to calclate the Jacobian.
+    jac = spzeros(2nn,2nn)
+    du[:] .= integrator.f(du,u,params,0)
+    cache = DiffEqDiffTools.JacobianCache(u)
+    f_tmp = (du,u) -> integrator.f(du,u,params,0)
+    # Newton's method.
+    iters = 0
+    while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
+        jac[:,:] .= DiffEqDiffTools.finite_difference_jacobian!(jac,f_tmp,u,cache)
+
+        du[:] .= integrator.f(du,u,params,0)
+        u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u[1:nn])*dx*dy-1])[1:2nn]
         iters += 1
     end
     iters >= maxiters && println("Maximum number of iterations reached, exiting.")

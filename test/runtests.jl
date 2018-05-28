@@ -20,3 +20,7 @@ using Base.Test
     v = rand(6)
     @test isapprox(conv_mat(u)*v,conv(u,v)[4:9])
 end
+
+@testset "flux!" begin
+    # Test that the Jacobian is correct.
+end
