@@ -1,4 +1,4 @@
-function create_params(mesh,potential,A,coupling,T0)
+function create_params(mesh,potential,A,coupling,temperature_init)
     xx,yy = mesh
     nx = length(xx)
     ny = length(yy)
@@ -14,7 +14,9 @@ function create_params(mesh,potential,A,coupling,T0)
     Pmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
     Pmat[0:nx+1,0] = 0
     Pmat[0:nx+1,ny+1] = 0
-    Tmat = fill(T0*one(eltype(xx)),0:nx+1,0:ny+1)
+    Tmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
+    Tmat[0:nx+1,0:ny+1] = [temperature_init(x,y) for x in [xx[1]-dx;xx;xx[end]+dx],
+                                                     y in [yy[1]-dy;yy;yy[end]+dy]]
     Jx = Array{eltype(xx)}(nx+1,ny+1)
     Jy = Array{eltype(xx)}(nx+1,ny+1)
 

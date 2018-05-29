@@ -93,7 +93,7 @@ function spectral_rhs!(::Type{Val{:jac}},jac,ϕ,params,t)
     tt = view(ϕ,nn+1:2nn)
 
     density_pjac!(view(jac,1:nn,1:nn),p,tt,params)
-    density_ttjac!(view(jac,nn+1:2nn,1:nn),p,tt,params)
+    density_ttjac!(view(jac,1:nn,nn+1:2nn),p,tt,params)
     temperature_pjac!(view(jac,nn+1:2nn,1:nn),tt,p,params)
     temperature_ttjac!(view(jac,nn+1:2nn,nn+1:2nn),tt,p,params)
     jac
@@ -166,8 +166,8 @@ function temperature_pjac!(pjac,tt,p,params)
     inds = (-nd2:nd2-1)+nn+1
 
     K = Diagonal(kk)
-    pjac[:,:] .= (-A*force^2*Diagonal(ones(nn)).-2π*im*A*force*conv_mat(plan,iplan,tt)*K
-                  .-4π*im*A*force*conv_mat(plan,iplan,kk.*vv)
+    pjac[:,:] .= (A*force^2*Diagonal(ones(nn)).-2π*im*A*force*conv_mat(plan,iplan,tt)*K
+                  .-4π*im*A*force*conv_mat(plan,iplan,vv.*kk)
                   .-4π^2*A*(  (conv_mat(plan,iplan,conv(plan,iplan,tt,kk.*vv)[inds]))*K
                             .+conv_mat(plan,iplan,conv(plan,iplan,vv.*kk,vv.*kk)[inds]))
     )
