@@ -47,7 +47,7 @@ function evolve_to_steady_state!(integrator,params;steadytol=1e-3,maxiters=500,
         step!(integrator)
         iters += 1
     end
-    (iters >= maxiters && convergence_warning) && println("Maximum number of iterations reached, exiting.")
+    (iters > maxiters && convergence_warning) && println("Maximum number of iterations reached, exiting.")
 
     integrator.u
 end
@@ -73,7 +73,7 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;u[nd2+1]-1])[1:2nn]
         iters += 1
     end
-    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+    iters > maxiters && println("Maximum number of iterations reached, exiting.")
 
     u
 end
@@ -100,7 +100,7 @@ function solve_steady_state_uncoupled(integrator,params;
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u)*dx*dy-1])[1:nx*ny]
         iters += 1
     end
-    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+    iters > maxiters && println("Maximum number of iterations reached, exiting.")
     print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
 
     u
@@ -131,7 +131,7 @@ function solve_steady_state(integrator,params::Tuple;
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u[1:nn])*dx*dy-1])[1:2nn]
         iters += 1
     end
-    iters >= maxiters && println("Maximum number of iterations reached, exiting.")
+    iters > maxiters && println("Maximum number of iterations reached, exiting.")
     print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
 
     u
