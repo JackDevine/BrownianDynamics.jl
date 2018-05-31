@@ -39,21 +39,11 @@ function density_current(mesh,u::AbstractArray{elT,N},params) where elT where N
     Tmat[0,1:ny] .= Tmat[nx-1,1:ny]
     Tmat[nx+1,1:ny] .= Tmat[2,1:ny]
 
-    Jxtmp = Array{elT}(nx,ny)
-    Jytmp = Array{elT}(nx,ny)
-    # for i in 1:nx, j in 1:ny
-    #     Jxtmp[i,j] = -( (Pmat[i-1,j]+Pmat[i,j])*V_x[i,j]
-    #                  +(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx)/2
-    #     Jytmp[i,j] = -( (Pmat[i,j-1]+Pmat[i,j])*V_y[i,j]
-    #                  +(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dy)/2
-    # end
-    Pmat = reshape(u[1:nx*ny],nx,ny)
-    Tmat = reshape(u[(nx*ny+1):end],nx,ny)
     Jx = [-( 0.5*(Pmat[i-1,j]+Pmat[i,j])*V_x[i,j]
-            +0.5*(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx) for i in 2:nx, j in 2:ny]
+            +0.5*(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx) for i in 1:nx, j in 1:ny]
 
     Jy = [-( 0.5*(Pmat[i,j-1]+Pmat[i,j])*V_y[i,j]
-            +0.5*(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dx) for i in 2:nx, j in 2:ny]
+            +0.5*(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dy) for i in 1:nx, j in 1:ny]
 
     Jx,Jy
 end
