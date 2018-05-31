@@ -41,14 +41,21 @@ function density_current(mesh,u::AbstractArray{elT,N},params) where elT where N
 
     Jxtmp = Array{elT}(nx,ny)
     Jytmp = Array{elT}(nx,ny)
-    for i in 1:nx, j in 1:ny
-        Jxtmp[i,j] = -( (Pmat[i-1,j]+Pmat[i,j])*V_x[i,j]
-                     +(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx)/2
-        Jytmp[i,j] = -( (Pmat[i,j-1]+Pmat[i,j])*V_y[i,j]
-                     +(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dy)/2
-    end
+    # for i in 1:nx, j in 1:ny
+    #     Jxtmp[i,j] = -( (Pmat[i-1,j]+Pmat[i,j])*V_x[i,j]
+    #                  +(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx)/2
+    #     Jytmp[i,j] = -( (Pmat[i,j-1]+Pmat[i,j])*V_y[i,j]
+    #                  +(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dy)/2
+    # end
+    Pmat = reshape(u[1:nx*ny],nx,ny)
+    Tmat = reshape(u[(nx*ny+1):end],nx,ny)
+    Jx = [-( 0.5*(Pmat[i-1,j]+Pmat[i,j])*V_x[i,j]
+            +0.5*(Tmat[i-1,j]+Tmat[i,j])*(Pmat[i,j]-Pmat[i-1,j])/dx) for i in 2:nx, j in 2:ny]
 
-    Jxtmp,Jytmp
+    Jy = [-( 0.5*(Pmat[i,j-1]+Pmat[i,j])*V_y[i,j]
+            +0.5*(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dx) for i in 2:nx, j in 2:ny]
+
+    Jx,Jy
 end
 
 """
@@ -211,15 +218,15 @@ function density_currents!(Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
                      +(Tmat[i,j-1]+Tmat[i,j])*(Pmat[i,j]-Pmat[i,j-1])/dy)/2
     end
     for j in 2:ny
-        Jx[nx+1,j] = -( (Pmat[nx-1,j]+Pmat[2,j])*V_x[2,j]
-                       +(Tmat[nx-1,j]+Tmat[2,j])*(Pmat[2,j]-Pmat[nx-1,j])/dx)/2
-        Jx[1,j] = -( (Pmat[nx-1,j]+Pmat[2,j])*V_x[2,j]
-                     +(Tmat[nx-1,j]+Tmat[2,j])*(Pmat[2,j]-Pmat[nx-1,j])/dx)/2
+        Jx[nx+1,j] = -( (Pmat[nx,j]+Pmat[2,j])*V_x[2,j]
+                       +(Tmat[nx,j]+Tmat[2,j])*(Pmat[2,j]-Pmat[nx,j])/dx)/2
+        Jx[1,j] = -( (Pmat[nx-1,j]+Pmat[1,j])*V_x[1,j]
+                    +(Tmat[nx-1,j]+Tmat[1,j])*(Pmat[1,j]-Pmat[nx-1,j])/dx)/2
 
         Jy[1,j] = -( (Pmat[1,j-1]+Pmat[1,j])*V_y[1,j]
-                     +(Tmat[1,j-1]+Tmat[1,j])*(Pmat[2,j]-Pmat[1,j-1])/dy)/2
+                    +(Tmat[1,j-1]+Tmat[1,j])*(Pmat[1,j]-Pmat[1,j-1])/dy)/2
         Jy[nx+1,j] = -( (Pmat[2,j-1]+Pmat[2,j])*V_y[2,j]
-                        +(Tmat[2,j-1]+Tmat[2,j])*(Pmat[2,j]-Pmat[2,j-1])/dy)/2
+                       +(Tmat[2,j-1]+Tmat[2,j])*(Pmat[2,j]-Pmat[2,j-1])/dy)/2
     end
 
     # Impose confining boundary conditions on the currents.
