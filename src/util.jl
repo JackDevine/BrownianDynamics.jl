@@ -2,7 +2,7 @@ function create_params(mesh,potential,A,coupling,temperature_init)
     xx,yy = mesh
     nx = length(xx)
     ny = length(yy)
-    dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
+    dx,dy = xx[2]-xx[1],yy[2]-yy[1]
     # Discrete potential. We will need the potential at the center of the volumes, as well
     # as the edges. The gradient of the potential only needs to be evaluated at the edges
     # of the cells.
@@ -27,7 +27,8 @@ function create_initial_conditions(mesh,density_init,temperature_init)
     xx,yy = mesh
     nx = length(xx)
     ny = length(yy)
-    dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
+    # dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
+    dx,dy = xx[2]-xx[1],yy[2]-yy[1]
     # Discrete versions of the temperature and the probability.
     P = [density_init(x,y) for x in xx, y in yy]
     P /= sum(P)*dx*dy  # Normalize probability.
@@ -66,8 +67,10 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
     jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
     # Newton's method.
     iters = 0
+    residual_list = Float64[]
     while (norm([du;u[nd2+1]-1])/nn>steadytol) && (iters<maxiters)
         du[:] .= integrator.f(du,u,params,0)
+        push!(residual_list,norm(du)/nn)
         jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
 
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;u[nd2+1]-1])[1:2nn]
@@ -75,7 +78,7 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
     end
     iters > maxiters && println("Maximum number of iterations reached, exiting.")
 
-    u
+    u,residual_list
 end
 
 # TODO sure that we can find out whether the discretisation is FVM via dispatch.
@@ -117,15 +120,21 @@ function solve_steady_state(integrator,params::Tuple;
     # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
     boundary_jac = zeros(2nn)
     boundary_jac[1:nn] = one(eltype(u))
-    # We use finite differences to calclate the Jacobian.
     jac = spzeros(2nn,2nn)
-    du[:] .= integrator.f(du,u,params,0)
-    cache = DiffEqDiffTools.JacobianCache(u)
-    f_tmp = (du,u) -> integrator.f(du,u,params,0)
+    #=
+    Use this if you want to autodiff the Jacobian.
+    # du[:] .= integrator.f(du,u,params,0)
+    # params_autodiff = params[5:end]
+    # f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
+    # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
+    # fill!(jac,zero(eltype(jac)))
+    =#
     # Newton's method.
+    du[:] .= integrator.f(du,u,params,0)
     iters = 0
     while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
-        jac[:,:] .= DiffEqDiffTools.finite_difference_jacobian!(jac,f_tmp,u,cache)
+        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
+        jac[:,:] .= flux!(Val{:jac},jac,u,params,0)
 
         du[:] .= integrator.f(du,u,params,0)
         u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u[1:nn])*dx*dy-1])[1:2nn]
@@ -135,4 +144,17 @@ function solve_steady_state(integrator,params::Tuple;
     print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
 
     u
+end
+
+function stencil_indices(dims,row)
+    n1,n2 = dims
+    inds = [row,row-1,row-n1,row+1,row+n2]-1
+    i,j = ind2sub((n1,n2),row)
+    if i==1
+        inds[2] += n1-1
+    elseif i==n1
+        inds[4] -= n1-1
+    end
+
+    mod.(inds,n1*n2)+1
 end

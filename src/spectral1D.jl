@@ -122,7 +122,7 @@ function density_pjac!(pjac,p,tt,params)
     kk = (-nd2:nd2-1)*one(eltype(p)) |> collect
 
     K = Diagonal(kk)
-    pjac[:,:] .=.-im*2π*force*K.-4π^2*( conv_mat(plan,iplan,tt)*K.^2.+conv_mat(plan,iplan,tt.*kk)*K
+    pjac[:,:] .= -im*2π*force*K.-4π^2*(  conv_mat(plan,iplan,tt)*K.^2.+conv_mat(plan,iplan,tt.*kk)*K
                                        .+conv_mat(plan,iplan,vv.*kk.^2).+conv_mat(plan,iplan,vv.*kk)*K)
 end
 
@@ -135,7 +135,7 @@ function density_ttjac!(ttjac,p,tt,params)
     kk = (-nd2:nd2-1)*one(eltype(p)) |> collect
 
     K = Diagonal(kk)
-    ttjac[:,:] .=-4π^2*(conv_mat(plan,iplan,p.*kk.^2).+conv_mat(plan,iplan,p.*kk)*K)
+    ttjac[:,:] .= -4π^2*(conv_mat(plan,iplan,p.*kk.^2).+conv_mat(plan,iplan,p.*kk)*K)
 end
 
 function temperature!(dtt,tt,p,params::SpectralParameters{T}) where T <: Number
