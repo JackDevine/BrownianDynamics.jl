@@ -130,18 +130,17 @@ for i in 1:4
         Tmat[0,1:ny] .= Tmat[nx-1,1:ny]
         Tmat[nx+1,1:ny] .= Tmat[2,1:ny]
 
-        arrayinds = Array{Int64}(5)
         inds = Array{Int64}(5)
         for row in 1:nx*ny
             i,j = ind2sub((nx,ny),row)
-            inds[:] .= stencil_indices((nx,ny),row)
-            jac[row,inds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
-                              $(stencil[4]),$(stencil[5])]
+            stencil_indices!(inds,(nx,ny),row)
+            jac[row,inds] .= SVector($(stencil[1]),$(stencil[2]),$(stencil[3]),
+                                     $(stencil[4]),$(stencil[5]))
         end
-        jac[diagind(jac,nx*ny-1)] = 0
-        jac[diagind(jac,-nx*ny+1)] = 0
-        jac[diagind(jac,nx*ny-nx)] = 0
-        jac[diagind(jac,-nx*ny+nx)] = 0
+        jac[diagind(jac,nx*ny-1)] = zero(eltype(jac))
+        jac[diagind(jac,-nx*ny+1)] = zero(eltype(jac))
+        jac[diagind(jac,nx*ny-nx)] = zero(eltype(jac))
+        jac[diagind(jac,-nx*ny+nx)] = zero(eltype(jac))
         jac
     end
 

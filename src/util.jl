@@ -146,15 +146,19 @@ function solve_steady_state(integrator,params::Tuple;
     u
 end
 
-function stencil_indices(dims,row)
+function stencil_indices!(inds,dims,row)
     n1,n2 = dims
-    inds = [row,row-1,row-n1,row+1,row+n2]-1
+    inds[:] .= SVector(row,row-1,row-n1,row+1,row+n2)-one(eltype(inds))
+    # inds -= one(eltype(inds))
     i,j = ind2sub((n1,n2),row)
     if i==1
-        inds[2] += n1-1
+        inds[2] += n1-one(eltype(inds))
     elseif i==n1
-        inds[4] -= n1-1
+        inds[4] -= n1-one(eltype(inds))
     end
-
-    mod.(inds,n1*n2)+1
+    for i in 1:length(inds)
+        inds[i] = mod(inds[i],n1*n2)+one(eltype(inds))
+    end
+    # inds = @SVector [mod(index,n1*n2)+one(eltype(inds)) for index in inds]
+    inds
 end

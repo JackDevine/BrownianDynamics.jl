@@ -6,6 +6,7 @@ using DiffEqDiffTools
 using ToeplitzMatrices
 using OffsetArrays
 using Parameters
+using StaticArrays
 
 export # Types.
        SpectralParameters,
