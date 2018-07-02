@@ -31,7 +31,7 @@ end
 
 """
     conv_mat(u)
-Calculate a matrix `A` such that
+Calculate a matrix `A` such that `A*v = conv(u,v)`.
 """
 function conv_mat(u)
     nn = length(u)
