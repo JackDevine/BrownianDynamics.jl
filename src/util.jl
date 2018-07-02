@@ -77,7 +77,7 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
     end
     iters > maxiters && println("Maximum number of iterations reached, exiting.")
 
-    u,residual_list
+    u
 end
 
 # TODO sure that we can find out whether the discretisation is FVM via dispatch.
