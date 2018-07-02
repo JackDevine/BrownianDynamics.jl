@@ -29,21 +29,8 @@ function Base.conv(p,ip,u,v)
     return y[1:n]
 end
 
-# TODO see if this is faster than the other method.
-# function conv!(p,ip,y,u,v)
-#     T = eltype(u)
-#     nu = length(u)
-#     nv = length(v)
-#     n = nu+nv-1
-#     np2 = n>1024 ? nextprod([2,3,5],n) : nextpow2(n)
-#     upad = [u;zeros(T,np2-nu)]
-#     vpad = [v;zeros(T,np2-nv)]
-#
-#     y[:] .= ip*((p*upad).*(p*vpad))
-#     return y[1:n]
-# end
 """
-    con_mat(u)
+    conv_mat(u)
 Calculate a matrix `A` such that
 """
 function conv_mat(u)
@@ -61,7 +48,7 @@ function conv_mat(u)
 
     v1[1] = v2[1]
 
-    ToeplitzMatrices.Toeplitz(v1,v2) #|> full
+    ToeplitzMatrices.Toeplitz(v1,v2)
 end
 
 """
@@ -84,7 +71,7 @@ function conv_mat(p,ip,u)
 
     v1[1] = v2[1]
 
-    ToeplitzMatrices.Toeplitz(v1,v2) #|> full
+    ToeplitzMatrices.Toeplitz(v1,v2)
 end
 
 function spectral_rhs!(::Type{Val{:jac}},jac,ϕ,params,t)

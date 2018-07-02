@@ -1,4 +1,4 @@
-@noinline function density_flux!(::Type{Val{:jac}},jac,u,params)
+function density_flux!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     ny = length(indices(Tmat)[1])-2
     nx = length(indices(Tmat)[2])-2
@@ -28,7 +28,7 @@ end
 
 density_flux!(::Type{Val{:jac}},jac,u,params,t) = density_flux!(Val{:jac},jac,u,params)
 
-@noinline function density_coupling!(::Type{Val{:jac}},jac,u,params)
+function density_coupling!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     ny = length(indices(Tmat)[1])-2
     nx = length(indices(Tmat)[2])-2
@@ -58,7 +58,7 @@ end
 
 density_coupling!(::Type{Val{:jac}},jac,u,params,t) = density_coupling!(Val{:jac},jac,u,params)
 
-@noinline function temperature_coupling!(::Type{Val{:jac}},jac,u,params)
+function temperature_coupling!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     ny = length(indices(Tmat)[1])-2
     nx = length(indices(Tmat)[2])-2
@@ -88,7 +88,7 @@ end
 
 temperature_coupling!(::Type{Val{:jac}},jac,u,params,t) = temperature_coupling!(Val{:jac},jac,u,params)
 
-@noinline function temperature_flux!(::Type{Val{:jac}},jac,u,params)
+function temperature_flux!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     ny = length(indices(Tmat)[1])-2
     nx = length(indices(Tmat)[2])-2

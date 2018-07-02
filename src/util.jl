@@ -27,7 +27,6 @@ function create_initial_conditions(mesh,density_init,temperature_init)
     xx,yy = mesh
     nx = length(xx)
     ny = length(yy)
-    # dx,dy = (xx[end]-xx[1])/nx,(yy[end]-yy[1])/ny
     dx,dy = xx[2]-xx[1],yy[2]-yy[1]
     # Discrete versions of the temperature and the probability.
     P = [density_init(x,y) for x in xx, y in yy]
@@ -140,7 +139,6 @@ end
 function stencil_indices!(inds,dims,row)
     n1,n2 = dims
     inds[:] .= SVector(row,row-1,row-n1,row+1,row+n2)-one(eltype(inds))
-    # inds -= one(eltype(inds))
     i,j = ind2sub((n1,n2),row)
     if i==1
         inds[2] += n1-one(eltype(inds))
@@ -150,6 +148,5 @@ function stencil_indices!(inds,dims,row)
     for i in 1:length(inds)
         inds[i] = mod(inds[i],n1*n2)+one(eltype(inds))
     end
-    # inds = @SVector [mod(index,n1*n2)+one(eltype(inds)) for index in inds]
     inds
 end
