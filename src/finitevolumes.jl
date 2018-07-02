@@ -1,3 +1,19 @@
+struct FVMParameters{T}
+    Pmat::OffsetArray{T,2,Array{T,2}}
+    Tmat::OffsetArray{T,2,Array{T,2}}
+    Jx::Array{T,2}
+    Jy::Array{T,2}
+    V::Array{T,2}
+    Vyshift::Array{T,2}
+    Vxshift::Array{T,2}
+    V_x::Array{T,2}
+    V_y::Array{T,2}
+    dx::T
+    dy::T
+    A::T
+    coupling::T
+end
+
 function get_variables(mesh,u::AbstractArray{elT,N},params) where elT where N
     xx,yy = mesh
     nx,ny = length(xx),length(yy)
@@ -25,7 +41,7 @@ function get_variables(mesh,u::AbstractArray{elT,N},params) where elT where N
 end
 
 function density_current(mesh,u::AbstractArray{elT,N},params;rotate=false) where elT where N
-    Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+    @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     xx,yy = mesh
     nx = length(xx)
     ny = length(yy)
@@ -128,7 +144,8 @@ energy density. The parameters are as follows:
 #     du
 # end
 
-function flux!(du,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+function flux!(du,u,params)
+    @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     nx,ny = size(V_x)[1]-1,size(V_x)[2]-1
     T_x = Array{eltype(Pmat)}(nx+1,ny+1)
     T_y = Array{eltype(Pmat)}(nx+1,ny+1)
@@ -153,7 +170,7 @@ function flux!(du,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
     du
 end
 
-flux!(du,u,params,t) = flux!(du,u,params...)
+flux!(du,u,params,t) = flux!(du,u,params)
 
 function flux_autodiff!(du,u,params,t)
     V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
@@ -190,9 +207,9 @@ function flux_autodiff!(du,u,params,t)
     du
 end
 
-function flux!(::Type{Val{:jac}},jac,u,params,t)
-    Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    nx,ny = size(V_x)[1]-1,size(V_x)[2]-1
+@noinline function flux!(::Type{Val{:jac}},jac,u,params,t)
+    # @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+    nx,ny = size(params.V_x)[1]-1,size(params.V_x)[2]-1
     # Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # # Periodicity in the x direction.
     # Pmat[0,1:ny] .= Pmat[nx,1:ny]

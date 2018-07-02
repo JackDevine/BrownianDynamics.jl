@@ -116,8 +116,8 @@ for i in 1:4
     stencil = stencils[i]
     code[i] =
     """
-    function $(function_name)(::Type{Val{:jac}},jac,u,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,
-                              V_x,V_y,dx,dy,A,coupling)
+    @noinline function $(function_name)(::Type{Val{:jac}},jac,u,params)
+        @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
         ny = length(indices(Tmat)[1])-2
         nx = length(indices(Tmat)[2])-2
         Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
@@ -134,8 +134,8 @@ for i in 1:4
         for row in 1:nx*ny
             i,j = ind2sub((nx,ny),row)
             stencil_indices!(inds,(nx,ny),row)
-            jac[row,inds] .= SVector($(stencil[1]),$(stencil[2]),$(stencil[3]),
-                                     $(stencil[4]),$(stencil[5]))
+            jac[row,inds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
+                              $(stencil[4]),$(stencil[5])]
         end
         jac[diagind(jac,nx*ny-1)] = zero(eltype(jac))
         jac[diagind(jac,-nx*ny+1)] = zero(eltype(jac))
@@ -144,7 +144,7 @@ for i in 1:4
         jac
     end
 
-    $(function_name)(::Type{Val{:jac}},jac,u,params,t) = $(function_name)(Val{:jac},jac,u,params...)
+    $(function_name)(::Type{Val{:jac}},jac,u,params,t) = $(function_name)(Val{:jac},jac,u,params)
     """
 end
 

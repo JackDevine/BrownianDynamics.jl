@@ -20,7 +20,7 @@ function create_params(mesh,potential,A,coupling,temperature_init)
     Jx = Array{eltype(xx)}(nx+1,ny+1)
     Jy = Array{eltype(xx)}(nx+1,ny+1)
 
-    params = (Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+    FVMParameters(Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 end
 
 function create_initial_conditions(mesh,density_init,temperature_init)
@@ -109,36 +109,27 @@ function solve_steady_state_uncoupled(integrator,params;
     u
 end
 
-function solve_steady_state(integrator,params::Tuple;
-                            steadytol=1e-3,maxiters=10,print_residual=true)
-    Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    u = copy(integrator.u)
+function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-10,
+                            maxiters::Int=5,print_residual::Bool=true)
+    dx,dy = params.dx,params.dy
+    u = copy(u_init)
     nn = round(Int,length(u)/2)
     nx = round(Int,sqrt(nn))
 
     du = similar(u)
     # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
-    boundary_jac = zeros(2nn)
+    boundary_jac = zeros(eltype(u),2nn)
     boundary_jac[1:nn] = one(eltype(u))
-    jac = spzeros(2nn,2nn)
-    #=
-    Use this if you want to autodiff the Jacobian.
-    # du[:] .= integrator.f(du,u,params,0)
-    # params_autodiff = params[5:end]
-    # f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
-    # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
-    # fill!(jac,zero(eltype(jac)))
-    =#
+    jac = spzeros(eltype(u),2nn,2nn)
     # Newton's method.
-    du[:] .= integrator.f(du,u,params,0)
-    iters = 0
+    du[:] .= flux!(du,u,params,0)
+    iters = zero(Int64)
     while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
-        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
-        jac[:,:] .= flux!(Val{:jac},jac,u,params,0)
+        flux!(Val{:jac},jac,u,params,0)
+        flux!(du,u,params,0)
 
-        du[:] .= integrator.f(du,u,params,0)
-        u[:] .+= -(([jac boundary_jac;boundary_jac' 0.0])\[du;sum(u[1:nn])*dx*dy-1])[1:2nn]
-        iters += 1
+        u[:] .+= -(([jac boundary_jac;boundary_jac' zero(eltype(u))])\[du;sum(u[1:nn])*dx*dy-one(eltype(u))])[1:2nn]
+        iters += one(Int64)
     end
     iters > maxiters && println("Maximum number of iterations reached, exiting.")
     print_residual && @show norm([du;sum(u[1:nn])*dx*dy-1])/nn
