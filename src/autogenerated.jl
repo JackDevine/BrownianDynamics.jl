@@ -1,7 +1,7 @@
 function density_flux!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    ny = length(indices(Tmat)[1])-2
-    nx = length(indices(Tmat)[2])-2
+    nx = length(indices(Tmat)[1])-2
+    ny = length(indices(Tmat)[2])-2
     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # Periodicity in the x direction.
     Pmat[0,1:ny] .= Pmat[nx-1,1:ny]
@@ -30,8 +30,8 @@ density_flux!(::Type{Val{:jac}},jac,u,params,t) = density_flux!(Val{:jac},jac,u,
 
 function density_coupling!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    ny = length(indices(Tmat)[1])-2
-    nx = length(indices(Tmat)[2])-2
+    nx = length(indices(Tmat)[1])-2
+    ny = length(indices(Tmat)[2])-2
     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # Periodicity in the x direction.
     Pmat[0,1:ny] .= Pmat[nx-1,1:ny]
@@ -60,8 +60,8 @@ density_coupling!(::Type{Val{:jac}},jac,u,params,t) = density_coupling!(Val{:jac
 
 function temperature_coupling!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    ny = length(indices(Tmat)[1])-2
-    nx = length(indices(Tmat)[2])-2
+    nx = length(indices(Tmat)[1])-2
+    ny = length(indices(Tmat)[2])-2
     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # Periodicity in the x direction.
     Pmat[0,1:ny] .= Pmat[nx-1,1:ny]
@@ -90,8 +90,8 @@ temperature_coupling!(::Type{Val{:jac}},jac,u,params,t) = temperature_coupling!(
 
 function temperature_flux!(::Type{Val{:jac}},jac,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    ny = length(indices(Tmat)[1])-2
-    nx = length(indices(Tmat)[2])-2
+    nx = length(indices(Tmat)[1])-2
+    ny = length(indices(Tmat)[2])-2
     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # Periodicity in the x direction.
     Pmat[0,1:ny] .= Pmat[nx-1,1:ny]

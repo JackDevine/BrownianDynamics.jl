@@ -80,7 +80,6 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
     u
 end
 
-# TODO sure that we can find out whether the discretisation is FVM via dispatch.
 function solve_steady_state_uncoupled(integrator,params;
                                       steadytol=1e-3,maxiters=10,print_residual=true)
     Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy = params
@@ -120,11 +119,17 @@ function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-1
     boundary_jac = zeros(eltype(u),2nn)
     boundary_jac[1:nn] = one(eltype(u))
     jac = spzeros(eltype(u),2nn,2nn)
+    du[:] .= flux!(du,u,params,0)
+    # Autodiff code.
+    # @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+    # params_autodiff = (V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+    # f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
     # Newton's method.
     du[:] .= flux!(du,u,params,0)
     iters = zero(Int64)
     while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
         flux!(Val{:jac},jac,u,params,0)
+        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
         flux!(du,u,params,0)
 
         u[:] .+= -(([jac boundary_jac;boundary_jac' zero(eltype(u))])\[du;sum(u[1:nn])*dx*dy-one(eltype(u))])[1:2nn]

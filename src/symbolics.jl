@@ -28,8 +28,8 @@ T_x_ij:  The x gradient of the temperature at the left edge of the i,j cell.
 T_y_ij:  The y gradient of the temperature at the bottom edge of the i,j cell.
 V_x_ij:  The x derivative of the potential at the left edge of the i,j cell.
 V_y_ij:  The y derivative of the potential at the bottom edge of the i,j cell.
-Vxs_ij:  The potential at the left edge of the i,j cell. (i.e. the x shifted potential.)
-Vys_ij:  The potential at the bottom edge of the i,j cell. (i.e. the y shifted potential.)
+Vxs_ij:  The potential at the left edge of the i,j cell (i.e. the x shifted potential).
+Vys_ij:  The potential at the bottom edge of the i,j cell (i.e. the y shifted potential).
 =#
 
 using SymPy
@@ -118,8 +118,8 @@ for i in 1:4
     """
     function $(function_name)(::Type{Val{:jac}},jac,u,params)
         @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-        ny = length(indices(Tmat)[1])-2
-        nx = length(indices(Tmat)[2])-2
+        nx = length(indices(Tmat)[1])-2
+        ny = length(indices(Tmat)[2])-2
         Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
         # Periodicity in the x direction.
         Pmat[0,1:ny] .= Pmat[nx-1,1:ny]
