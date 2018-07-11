@@ -87,8 +87,6 @@ function spectral_rhs!(::Type{Val{:jac}},jac,ϕ,params,t)
 end
 
 function density!(dp,p,tt,params)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -101,8 +99,6 @@ function density!(dp,p,tt,params)
 end
 
 function density_pjac!(pjac,p,tt,params)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -114,8 +110,6 @@ function density_pjac!(pjac,p,tt,params)
 end
 
 function density_ttjac!(ttjac,p,tt,params)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -126,8 +120,6 @@ function density_ttjac!(ttjac,p,tt,params)
 end
 
 function temperature!(dtt,tt,p,params::SpectralParameters{T}) where T <: Number
-    # A,B,force,vv,T0 = getindex.(params,[:A,:B,:force,:vv,:T0])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -144,8 +136,6 @@ function temperature!(dtt,tt,p,params::SpectralParameters{T}) where T <: Number
 end
 
 function temperature_pjac!(pjac,tt,p,params)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -161,8 +151,6 @@ function temperature_pjac!(pjac,tt,p,params)
 end
 
 function temperature_ttjac!(ttjac,tt,p,params)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = length(indices(p)[1])
     nd2 = round(Int,nn/2)
@@ -177,8 +165,6 @@ function temperature_ttjac!(ttjac,tt,p,params)
 end
 
 function spectral_rhs!(dϕ,ϕ,params,t)
-    # A,B,force,vv = getindex.(params,[:A,:B,:force,:vv])
-    # A,B,force,vv,T0 = params
     @unpack plan,iplan,A,B,force,vv,T0 = params
     nn = round(Int,length(ϕ)/2)
     dϕ[1:nn] .= density!(dϕ[1:nn],ϕ[1:nn],ϕ[nn+1:2nn],params)
@@ -187,8 +173,6 @@ function spectral_rhs!(dϕ,ϕ,params,t)
 end
 
 function real_current(ϕ,params)
-    # A,B,force,vv,T0 = params
-    # vv = params[4]
     nn = round(Int,length(ϕ)/2)
     nd2 = round(Int,nn/2)
     kk = -nd2:nd2-1
