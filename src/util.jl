@@ -129,8 +129,9 @@ function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-1
     iters = zero(Int64)
     while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
         flux!(Val{:jac},jac,u,params,0)
-        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
         flux!(du,u,params,0)
+        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
+        # flux_autodiff!(du,u,params_autodiff,0)
 
         u[:] .+= -(([jac boundary_jac;boundary_jac' zero(eltype(u))])\[du;sum(u[1:nn])*dx*dy-one(eltype(u))])[1:2nn]
         iters += one(Int64)

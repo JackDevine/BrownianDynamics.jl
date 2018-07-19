@@ -50,9 +50,9 @@ T_y_ij = (T_22-T_21)/dy
 T_y_ijp1 = (T_23-T_22)/dy
 # The definitions for the fluxes are based on the fluxes from the function
 # `flux!(du,u,params...)`.
-density_flux = (Jx_ij-Jx_ip1j)/dy+(Jy_ij-Jy_ijp1)/dx
-energy_flux = ((Jx_ij*Vxs_ij-Jx_ip1j*Vxs_ip1j-C*(T_x_ij-T_x_ip1j))/dy
-                 +((Jy_ij*Vys_ij-Jy_ijp1*Vys_ijp1-C*(T_y_ij-T_y_ijp1)))/dx)
+density_flux = (Jx_ij-Jx_ip1j)/dx+(Jy_ij-Jy_ijp1)/dy
+energy_flux = ((Jx_ij*Vxs_ij-Jx_ip1j*Vxs_ip1j-C*(T_x_ij-T_x_ip1j))/dx
+                 +((Jy_ij*Vys_ij-Jy_ijp1*Vys_ijp1-C*(T_y_ij-T_y_ijp1)))/dy)
 temperature_flux = A*(energy_flux-density_flux*V_22)
 # Now we want to turn the symbolic expressions into Julia code. To do this, we will
 # replace the stencil variables with their corresponding array variables.

@@ -83,11 +83,11 @@ function flux!(du,u,params)
     density_currents!(Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
     temperature_gradients!(T_x,T_y,Tmat,dx,dy)
 
-    du[1:nx*ny] .= ((Jx[1:nx,1:ny].-Jx[2:nx+1,1:ny])/dy.+(Jy[1:nx,1:ny].-Jy[1:nx,2:ny+1])/dx)[:]
+    du[1:nx*ny] .= ((Jx[1:nx,1:ny].-Jx[2:nx+1,1:ny])/dx.+(Jy[1:nx,1:ny].-Jy[1:nx,2:ny+1])/dy)[:]
     du[(nx*ny+1):2nx*ny] .= A*(((Jx[1:nx,1:ny].*Vxshift[1:nx,1:ny]-Jx[2:nx+1,1:ny].*Vxshift[2:nx+1,1:ny]
-                                -coupling*(T_x[1:nx,1:ny]-T_x[2:nx+1,1:ny]))/dy
+                                -coupling*(T_x[1:nx,1:ny].-T_x[2:nx+1,1:ny]))/dx
                                +(Jy[1:nx,1:ny].*Vyshift[1:nx,1:ny]-Jy[1:nx,2:ny+1].*Vyshift[1:nx,2:ny+1]
-                                 -coupling*(T_y[1:nx,1:ny]-T_y[1:nx,2:ny+1]))/dx))[:].-A*du[1:nx*ny].*V[:]
+                                 -coupling*(T_y[1:nx,1:ny].-T_y[1:nx,2:ny+1]))/dy))[:].-A*du[1:nx*ny].*V[:]
     du
 end
 
@@ -120,11 +120,11 @@ function flux_autodiff!(du,u,params,t)
     density_currents!(Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
     temperature_gradients!(T_x,T_y,Tmat,dx,dy)
 
-    du[1:nx*ny] .= ((Jx[1:nx,1:ny].-Jx[2:nx+1,1:ny])/dy.+(Jy[1:nx,1:ny].-Jy[1:nx,2:ny+1])/dx)[:]
+    du[1:nx*ny] .= ((Jx[1:nx,1:ny].-Jx[2:nx+1,1:ny])/dx.+(Jy[1:nx,1:ny].-Jy[1:nx,2:ny+1])/dy)[:]
     du[(nx*ny+1):2nx*ny] .= A*(((Jx[1:nx,1:ny].*Vxshift[1:nx,1:ny]-Jx[2:nx+1,1:ny].*Vxshift[2:nx+1,1:ny]
-                                -coupling*(T_x[1:nx,1:ny]-T_x[2:nx+1,1:ny]))/dy
+                                -coupling*(T_x[1:nx,1:ny].-T_x[2:nx+1,1:ny]))/dx
                                +(Jy[1:nx,1:ny].*Vyshift[1:nx,1:ny]-Jy[1:nx,2:ny+1].*Vyshift[1:nx,2:ny+1]
-                                 -coupling*(T_y[1:nx,1:ny]-T_y[1:nx,2:ny+1]))/dx))[:].-A*du[1:nx*ny].*V[:]
+                                 -coupling*(T_y[1:nx,1:ny].-T_y[1:nx,2:ny+1]))/dy))[:].-A*du[1:nx*ny].*V[:]
     du
 end
 
