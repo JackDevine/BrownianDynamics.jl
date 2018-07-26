@@ -108,7 +108,7 @@ function solve_steady_state_uncoupled(integrator,params;
 end
 
 function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-10,
-                            maxiters::Int=5,print_residual::Bool=true)
+                            maxiters::Int=5,print_residual::Bool=true,autodiff=false)
     dx,dy = params.dx,params.dy
     u = copy(u_init)
     nn = round(Int,length(u)/2)
@@ -121,17 +121,23 @@ function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-1
     jac = spzeros(eltype(u),2nn,2nn)
     du[:] .= flux!(du,u,params,0)
     # Autodiff code.
-    # @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
-    # params_autodiff = (V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
-    # f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
+    if autodiff
+        @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+        params_autodiff = (V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+        f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
+        tmp = ForwardDiff.jacobian!(jac,f_autodiff,du,u)
+    end
     # Newton's method.
     du[:] .= flux!(du,u,params,0)
     iters = zero(Int64)
     while (norm([du;sum(u[1:nn])*dx*dy-1])/nn>steadytol) && (iters<maxiters)
-        flux!(Val{:jac},jac,u,params,0)
-        flux!(du,u,params,0)
-        # jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
-        # flux_autodiff!(du,u,params_autodiff,0)
+        if autodiff
+            jac[:,:] .= ForwardDiff.jacobian!(jac,f_autodiff,du,u)
+            flux_autodiff!(du,u,params_autodiff,0)
+        else
+            flux!(Val{:jac},jac,u,params,0)
+            flux!(du,u,params,0)
+        end
 
         u[:] .+= -(([jac boundary_jac;boundary_jac' zero(eltype(u))])\[du;sum(u[1:nn])*dx*dy-one(eltype(u))])[1:2nn]
         iters += one(Int64)
