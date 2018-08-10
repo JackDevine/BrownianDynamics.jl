@@ -4,8 +4,8 @@ struct FVMParameters{T}
     Jx::Array{T,2}
     Jy::Array{T,2}
     V::Array{T,2}
-    Vyshift::Array{T,2}
     Vxshift::Array{T,2}
+    Vyshift::Array{T,2}
     V_x::Array{T,2}
     V_y::Array{T,2}
     dx::T
