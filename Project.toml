@@ -1,3 +1,6 @@
+name = "BrownianDynamics"
+uuid = "9aaca010-545f-11e9-1f13-43a2532b2fa8"
+
 [deps]
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
 DiffEqDiffTools = "01453d9d-ee7c-5054-8395-0335cb756afa"

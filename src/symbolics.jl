@@ -127,17 +127,19 @@ for i in 1:4
             Tmat[0,1:ny] .= Tmat[nx-1,1:ny]
             Tmat[nx+1,1:ny] .= Tmat[2,1:ny]
 
-            inds = Array{Int64}(5)
+            inds = Array{Int64}(undef,5)
+            i2s = CartesianIndices((nx,ny))
             for row in 1:nx*ny
-                i,j = ind2sub((nx,ny),row)
+                i_j = i2s[row]
+                i,j = i_j[1],i_j[2]
                 stencil_indices!(inds,(nx,ny),row)
                 jac[row,inds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
                                   $(stencil[4]),$(stencil[5])]
             end
-            jac[diagind(jac,nx*ny-1)] = zero(eltype(jac))
-            jac[diagind(jac,-nx*ny+1)] = zero(eltype(jac))
-            jac[diagind(jac,nx*ny-nx)] = zero(eltype(jac))
-            jac[diagind(jac,-nx*ny+nx)] = zero(eltype(jac))
+            jac[diagind(jac,nx*ny-1)] .= zero(eltype(jac))
+            jac[diagind(jac,-nx*ny+1)] .= zero(eltype(jac))
+            jac[diagind(jac,nx*ny-nx)] .= zero(eltype(jac))
+            jac[diagind(jac,-nx*ny+nx)] .= zero(eltype(jac))
             jac
         end
     end |> eval

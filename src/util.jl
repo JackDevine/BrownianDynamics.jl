@@ -150,8 +150,10 @@ end
 
 function stencil_indices!(inds,dims,row)
     n1,n2 = dims
-    inds[:] .= SVector(row,row-1,row-n1,row+1,row+n2)-one(eltype(inds))
-    i,j = ind2sub((n1,n2),row)
+    inds[:] .= SVector(row,row-1,row-n1,row+1,row+n2).-one(eltype(inds))
+    i2s = CartesianIndices((n1,n2))
+    i_j = i2s[row]
+    i,j = i_j[1],i_j[2]
     if i==1
         inds[2] += n1-one(eltype(inds))
     elseif i==n1
