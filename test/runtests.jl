@@ -1,7 +1,12 @@
 using BrownianDynamics
 using OffsetArrays
 using DifferentialEquations
-using Base.Test
+using DiffEqDiffTools
+using DSP
+using FFTW
+using Test
+using SparseArrays
+using LinearAlgebra
 
 # write your own tests here
 @testset "conv_mat" begin
@@ -10,7 +15,7 @@ using Base.Test
     nu = length(vv)
 
     n = 2nu-1
-    np2 = n > 1024 ? nextprod([2,3,5],n) : nextpow2(n)
+    np2 = n > 1024 ? nextprod([2,3,5],n) : nextpow(2,n)
     upad = [vv;zeros(T,np2-nu)]
 
     p = plan_fft!(upad)
@@ -30,15 +35,15 @@ end
 ## Initialize a spectral system.
 nn = 64
 nd2 = round(Int,nn/2)
-p = OffsetArray(Complex{Float64},-round(Int,nn/2):round(Int,nn/2-1))
+p = OffsetArray{Complex{Float64}}(undef,-round(Int,nn/2):round(Int,nn/2-1))
 p[:] = zeros(Complex{Float64},nn)
 p[-2:2] = [0.0 0.0 1.0 0.0 0.0]
-vv = OffsetArray(Complex{Float64},-round(Int,nn/2):round(Int,nn/2-1))
-vv[:] = 0.0
+vv = OffsetArray{Complex{Float64}}(undef,-round(Int,nn/2):round(Int,nn/2-1))
+vv[:] = zeros(Complex{Float64},nn)
 # vv[-2:2] = [0.25 0.0 1.0 0.0 0.25]
 vv[-2:2] = 2*[0.0 0.5im 0.0 -0.5im 0.0]
-tt = OffsetArray(Complex{Float64},-round(Int, nn/2):round(Int,nn/2-1))
-tt[:] = 0.0
+tt = OffsetArray{Complex{Float64}}(undef,-round(Int, nn/2):round(Int,nn/2-1))
+tt[:] = zeros(Complex{Float64},nn)
 tt[-1:1] = [0.0 1.0 0.0]
 
 p = collect(p)
@@ -50,7 +55,7 @@ T = Complex{Float64}
 nu = length(vv)
 nv = length(vv)
 n = nu+nv-1
-np2 = n > 1024 ? nextprod([2,3,5],n) : nextpow2(n)
+np2 = n > 1024 ? nextprod([2,3,5],n) : nextpow(2,n)
 upad = [vv;zeros(T,np2-nu)]
 vpad = [vv;zeros(T,np2-nv)]
 

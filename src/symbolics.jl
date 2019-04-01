@@ -73,20 +73,20 @@ replacements = [("T_22","Tmat[i,j]"),("T_21","Tmat[i,j-1]"),("T_12","Tmat[i-1,j]
 #    density_coupling!
 #    temperature_coupling!
 #    temperature_flux!
-density_stencil = Array{String}(5)
-density_coupling_stencil = Array{String}(5)
-temperature_coupling_stencil = Array{String}(5)
-temperature_stencil = Array{String}(5)
+density_stencil = Array{String}(undef,5)
+density_coupling_stencil = Array{String}(undef,5)
+temperature_coupling_stencil = Array{String}(undef,5)
+temperature_stencil = Array{String}(undef,5)
 @syms dP_P dT_P
 for (index,var) in enumerate([P_22,P_12,P_21,P_32,P_23])
     dP_P = diff(density_flux,var) |> simplify |> string
     dT_P = diff(temperature_flux,var) |> simplify |> string
     for replacement in replacements
-        dP_P = replace(dP_P,replacement...)
-        dT_P = replace(dT_P,replacement...)
+        dP_P = replace(dP_P,replacement[1]=>replacement[2])
+        dT_P = replace(dT_P,replacement[1]=>replacement[2])
     end
-    dP_P = replace(dP_P," ","")
-    dT_P = replace(dT_P," ","")
+    dP_P = replace(dP_P," "=>"")
+    dT_P = replace(dT_P," "=>"")
     density_stencil[index] = dP_P
     temperature_coupling_stencil[index] = dT_P
 end
@@ -95,11 +95,11 @@ for (index,var) in enumerate([T_22,T_12,T_21,T_32,T_23])
     dP_T = diff(density_flux,var) |> simplify |> string
     dT_T = diff(temperature_flux,var) |> simplify |> string
     for replacement in replacements
-        dP_T = replace(dP_T,replacement...)
-        dT_T = replace(dT_T,replacement...)
+        dP_T = replace(dP_T,replacement[1]=>replacement[2])
+        dT_T = replace(dT_T,replacement[1]=>replacement[2])
     end
-    dP_T = replace(dP_T," ","")
-    dT_T = replace(dT_T," ","")
+    dP_T = replace(dP_T," "=>"")
+    dT_T = replace(dT_T," "=>"")
     density_coupling_stencil[index] = dP_T
     temperature_stencil[index] = dT_T
 end
@@ -109,8 +109,8 @@ function_names = ["density_flux!","density_coupling!",
 stencils = [density_stencil,density_coupling_stencil,
             temperature_coupling_stencil,temperature_stencil]
 for i in 1:4
-    function_name = parse(function_names[i])
-    stencil = parse.(stencils[i])
+    function_name = Meta.parse(function_names[i])
+    stencil = Meta.parse.(stencils[i])
 
     quote
         function ($function_name)(::Type{Val{:jac}},jac,u,params)

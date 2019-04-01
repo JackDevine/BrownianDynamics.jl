@@ -61,7 +61,7 @@ function solve_steady_state(integrator,params::SpectralParameters{T};
     # We will use the boundary jacobian to assert that `u[nd2+1] == 1`.
     boundary_jac = zeros(eltype(u),2nn)
     boundary_jac[nd2+1] = 1
-    jac = Array{eltype(u)}(length(u),length(u))
+    jac = Array{eltype(u)}(undef,length(u),length(u))
     du[:] .= integrator.f(du,u,params,0)
     jac[:,:] .= integrator.f(Val{:jac},jac,u,params,0)
     # Newton's method.

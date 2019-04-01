@@ -7,6 +7,10 @@ using ToeplitzMatrices
 using OffsetArrays
 using Parameters
 using StaticArrays
+using SymPy
+using DSP
+using FFTW
+using LinearAlgebra
 
 export # Types.
        SpectralParameters,
@@ -20,6 +24,8 @@ export # Types.
        evolve_to_steady_state!,
        solve_steady_state,
        spectral_rhs!,
+       density!,
+       temperature!,
        conv,
        conv_mat,
        real_current
