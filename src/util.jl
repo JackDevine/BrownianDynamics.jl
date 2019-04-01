@@ -11,14 +11,14 @@ function create_params(mesh,potential,A,coupling,temperature_init)
     V_y = [ForwardDiff.derivative(yp->potential(x,yp),y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vxshift = [potential(x-0.5dx,y) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vyshift = [potential(x,y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
-    Pmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
-    Pmat[0:nx+1,0] = 0
-    Pmat[0:nx+1,ny+1] = 0
-    Tmat = OffsetArray(eltype(xx),0:nx+1,0:ny+1)
+    Pmat = OffsetArray{eltype(xx)}(undef,0:nx+1,0:ny+1)
+    Pmat[0:nx+1,0] *= 0
+    Pmat[0:nx+1,ny+1] *= 0
+    Tmat = OffsetArray{eltype(xx)}(undef,0:nx+1,0:ny+1)
     Tmat[0:nx+1,0:ny+1] = [temperature_init(x,y) for x in [xx[1]-dx;xx;xx[end]+dx],
                                                      y in [yy[1]-dy;yy;yy[end]+dy]]
-    Jx = Array{eltype(xx)}(nx+1,ny+1)
-    Jy = Array{eltype(xx)}(nx+1,ny+1)
+    Jx = Array{eltype(xx)}(undef,nx+1,ny+1)
+    Jy = Array{eltype(xx)}(undef,nx+1,ny+1)
 
     FVMParameters(Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 end
@@ -38,7 +38,7 @@ end
 
 function evolve_to_steady_state!(integrator,params;steadytol=1e-3,maxiters=500,
                                                    convergence_warning=true)
-    du = Array{eltype(integrator.u)}(size(integrator.u))
+    du = Array{eltype(integrator.u)}(undef,size(integrator.u))
     iters = 0
     # TODO right now du will be calculated somewhere in the step! function.
     # I then recalculate du, which is a bit of a waste.
@@ -117,7 +117,7 @@ function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-1
     du = similar(u)
     # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
     boundary_jac = zeros(eltype(u),2nn)
-    boundary_jac[1:nn] = one(eltype(u))
+    boundary_jac[1:nn] .= one(eltype(u))
     jac = spzeros(eltype(u),2nn,2nn)
     du[:] .= flux!(du,u,params,0)
     # Autodiff code.

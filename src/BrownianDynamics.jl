@@ -11,6 +11,7 @@ using SymPy
 using DSP
 using FFTW
 using LinearAlgebra
+using SparseArrays
 
 export # Types.
        SpectralParameters,

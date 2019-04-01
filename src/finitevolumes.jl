@@ -68,8 +68,8 @@ end
 function flux!(du,u,params)
     @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
     nx,ny = size(V_x)[1]-1,size(V_x)[2]-1
-    T_x = Array{eltype(Pmat)}(nx+1,ny+1)
-    T_y = Array{eltype(Pmat)}(nx+1,ny+1)
+    T_x = Array{eltype(Pmat)}(undef,nx+1,ny+1)
+    T_y = Array{eltype(Pmat)}(undef,nx+1,ny+1)
 
     Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
     # Periodicity in the x direction.
@@ -139,7 +139,7 @@ function flux!(::Type{Val{:jac}},jac,u,params,t)
 end
 
 function temperature_gradients!(T_x,T_y,Tmat,dx,dy)
-    nx,ny = length(indices(Tmat)[1])-2,length(indices(Tmat)[2])-2
+    nx,ny = length(axes(Tmat)[1])-2,length(axes(Tmat)[2])-2
     for j in 1:ny+1, i in 1:nx+1
         T_x[i,j] = (Tmat[i,j]-Tmat[i-1,j])/dx
         T_y[i,j] = (Tmat[i,j]-Tmat[i,j-1])/dy
@@ -170,16 +170,16 @@ function density_currents!(Pmat,Tmat,Jx,Jy,V_x,V_y,dx,dy)
     end
 
     # Impose confining boundary conditions on the currents.
-    Jx[:,1] = zero(eltype(Jy))
-    Jx[:,ny+1] = zero(eltype(Jy))
-    Jy[:,1] = zero(eltype(Jy))
-    Jy[:,ny+1] = zero(eltype(Jy))
+    Jx[:,1] .= zero(eltype(Jy))
+    Jx[:,ny+1] .= zero(eltype(Jy))
+    Jy[:,1] .= zero(eltype(Jy))
+    Jy[:,ny+1] .= zero(eltype(Jy))
 
     Jx,Jy
 end
 
 function density_flux!(dP,P,Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
-    nx,ny = length(indices(Tmat)[1])-2,length(indices(Tmat)[2])-2
+    nx,ny = length(axes(Tmat)[1])-2,length(axes(Tmat)[2])-2
     Pmat[1:nx,1:ny] .= reshape(P,nx,ny)
     # Periodicity in the x direction.
     Pmat[0,1:ny] .= Pmat[nx-1,1:ny]
