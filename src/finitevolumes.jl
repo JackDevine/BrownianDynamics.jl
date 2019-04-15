@@ -1,6 +1,7 @@
-struct FVMParameters{T}
+mutable struct FVMParameters{T}
     Pmat::OffsetArray{T,2,Array{T,2}}
     Tmat::OffsetArray{T,2,Array{T,2}}
+    jac_::SparseMatrixCSC{T,Int}
     Jx::Array{T,2}
     Jy::Array{T,2}
     V::Array{T,2}
@@ -131,10 +132,10 @@ end
 function flux!(::Type{Val{:jac}},jac,u,params,t)
     nx,ny = size(params.V_x)[1]-1,size(params.V_x)[2]-1
 
-    jac[1:nx*ny,1:nx*ny] .= density_flux!(Val{:jac},jac[1:nx*ny,1:nx*ny],u,params,t)
-    jac[1:nx*ny,(nx*ny+1):end] .= density_coupling!(Val{:jac},jac[1:nx*ny,(nx*ny+1):end],u,params,t)
-    jac[(nx*ny+1):end,1:nx*ny] .= temperature_coupling!(Val{:jac},jac[(nx*ny+1):end,1:nx*ny],u,params,t)
-    jac[(nx*ny+1):end,(nx*ny+1):end] .= temperature_flux!(Val{:jac},jac[(nx*ny+1):end,(nx*ny+1):end],u,params,t)
+    density_flux!(Val{:jac},view(jac,1:nx*ny,1:nx*ny),u,params,t)
+    density_coupling!(Val{:jac},view(jac,1:nx*ny,(nx*ny+1):2*nx*ny),u,params,t)
+    temperature_coupling!(Val{:jac},view(jac,(nx*ny+1):2*nx*ny,1:nx*ny),u,params,t)
+    temperature_flux!(Val{:jac},view(jac,(nx*ny+1):2*nx*ny,(nx*ny+1):2*nx*ny),u,params,t)
     jac
 end
 

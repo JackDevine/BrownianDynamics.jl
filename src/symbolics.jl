@@ -114,7 +114,7 @@ for i in 1:4
 
     quote
         function ($function_name)(::Type{Val{:jac}},jac,u,params)
-            @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+            @unpack Pmat,Tmat,jac_,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
             nx = length(axes(Tmat)[1])-2
             ny = length(axes(Tmat)[2])-2
             Pmat[1:nx,1:ny] .= reshape(u[1:nx*ny],nx,ny)
@@ -129,13 +129,37 @@ for i in 1:4
 
             inds = Array{Int64}(undef,5)
             i2s = CartesianIndices((nx,ny))
+            linear_indices = LinearIndices(jac)
+            diag0 = Vector{eltype(jac)}(undef,size(jac)[1])
+            diagm1 = Vector{eltype(jac)}(undef,size(jac)[1])
+            diagm1_inds = Vector{Int}(undef,size(jac)[1])
+            diagmnx = Vector{eltype(jac)}(undef,size(jac)[1])
+            diagp1 = Vector{eltype(jac)}(undef,size(jac)[1])
+            diagp1_inds = Vector{Int}(undef,size(jac)[1])
+            diagpnx = Vector{eltype(jac)}(undef,size(jac)[1])
             for row in 1:nx*ny
                 i_j = i2s[row]
                 i,j = i_j[1],i_j[2]
                 stencil_indices!(inds,(nx,ny),row)
-                jac[row,inds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
-                                  $(stencil[4]),$(stencil[5])]
+                # jac[row,inds] .= [$(stencil[1]),$(stencil[2]),$(stencil[3]),
+                #                   $(stencil[4]),$(stencil[5])]
+                diag0[row] = $(stencil[1])
+                diagm1[row] = $(stencil[2])
+                diagm1_inds[row] = linear_indices[row,inds[2]]
+                diagmnx[row] = $(stencil[3])
+                diagp1[row] = $(stencil[4])
+                diagp1_inds[row] = linear_indices[row,inds[4]]
+                diagpnx[row] = $(stencil[5])
             end
+            jac[diagind(jac,0)] .= diag0
+            jac[diagm1_inds] .= diagm1
+            jac[diagp1_inds] .= diagp1
+            jac[[diagind(jac,nx*ny-nx);diagind(jac,-nx)]] .= diagmnx
+            jac[[diagind(jac,nx);diagind(jac,-nx*ny+nx)]] .= diagpnx
+            jac[diagind(jac,nx*ny-1)] .= zero(eltype(jac))
+            jac[diagind(jac,-nx*ny+1)] .= zero(eltype(jac))
+            jac[diagind(jac,nx*ny-nx)] .= zero(eltype(jac))
+            jac[diagind(jac,-nx*ny+nx)] .= zero(eltype(jac))
             jac[diagind(jac,nx*ny-1)] .= zero(eltype(jac))
             jac[diagind(jac,-nx*ny+1)] .= zero(eltype(jac))
             jac[diagind(jac,nx*ny-nx)] .= zero(eltype(jac))

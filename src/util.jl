@@ -12,15 +12,41 @@ function create_params(mesh,potential,A,coupling,temperature_init)
     Vxshift = [potential(x-0.5dx,y) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Vyshift = [potential(x,y-0.5dy) for x in [xx;xx[end]+dx], y in [yy;yy[end]+dy]]
     Pmat = OffsetArray{eltype(xx)}(undef,0:nx+1,0:ny+1)
+    fill!(Pmat,zero(eltype(xx)))
     Pmat[0:nx+1,0] *= 0
     Pmat[0:nx+1,ny+1] *= 0
     Tmat = OffsetArray{eltype(xx)}(undef,0:nx+1,0:ny+1)
+    fill!(Tmat,zero(eltype(xx)))
     Tmat[0:nx+1,0:ny+1] = [temperature_init(x,y) for x in [xx[1]-dx;xx;xx[end]+dx],
                                                      y in [yy[1]-dy;yy;yy[end]+dy]]
     Jx = Array{eltype(xx)}(undef,nx+1,ny+1)
     Jy = Array{eltype(xx)}(undef,nx+1,ny+1)
 
-    FVMParameters(Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
+    # jac = spzeros(eltype(xx),2nx*ny,2nx*ny)
+    # jac_prototype = spzeros(eltype(xx),nx*ny,nx*ny)
+    # jac_prototype[diagind(jac_prototype,0)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,-1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,nx*ny-1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,-nx*ny+1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,nx*ny-nx)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,-nx*ny+nx)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,nx*ny-1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,-nx*ny+1)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,nx*ny-nx)] .= one(eltype(xx))*eps()
+    # jac_prototype[diagind(jac_prototype,-nx*ny+nx)] .= one(eltype(xx))*eps()
+    jac_prototype = spdiagm(0 => ones(eltype(xx),nx*ny),
+                            1 => ones(eltype(xx),nx*ny-1),
+                            -1 => ones(eltype(xx),nx*ny-1),
+                            nx => ones(eltype(xx),nx*ny-nx),
+                            -nx => ones(eltype(xx),nx*ny-nx),
+                            nx*ny-nx => ones(eltype(xx),nx),
+                            -nx*ny+nx => ones(eltype(xx),nx),
+                            nx*ny-1 => ones(eltype(xx),1),
+                            -nx*ny+1 => ones(eltype(xx),1))
+    jac = vcat(hcat(jac_prototype,jac_prototype),hcat(jac_prototype,jac_prototype))
+
+    FVMParameters(Pmat,Tmat,jac,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
 end
 
 function create_initial_conditions(mesh,density_init,temperature_init)
@@ -110,6 +136,7 @@ end
 function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-10,
                             maxiters::Int=5,print_residual::Bool=true,autodiff=false)
     dx,dy = params.dx,params.dy
+    jac = params.jac_
     u = copy(u_init)
     nn = round(Int,length(u)/2)
     nx = round(Int,sqrt(nn))
@@ -118,11 +145,10 @@ function solve_steady_state(u_init,params::FVMParameters;steadytol::Float64=1e-1
     # We will use the boundary jacobian to assert that `sum(u[1:nx*ny])*dx*dy == 1`.
     boundary_jac = zeros(eltype(u),2nn)
     boundary_jac[1:nn] .= one(eltype(u))
-    jac = spzeros(eltype(u),2nn,2nn)
     du[:] .= flux!(du,u,params,0)
     # Autodiff code.
     if autodiff
-        @unpack Pmat,Tmat,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
+        @unpack Pmat,Tmat,jac_,Jx,Jy,V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling = params
         params_autodiff = (V,Vxshift,Vyshift,V_x,V_y,dx,dy,A,coupling)
         f_autodiff = (du,u) -> flux_autodiff!(du,u,params_autodiff,0)
         tmp = ForwardDiff.jacobian!(jac,f_autodiff,du,u)
