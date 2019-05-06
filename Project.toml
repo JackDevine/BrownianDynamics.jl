@@ -4,7 +4,6 @@ uuid = "9aaca010-545f-11e9-1f13-43a2532b2fa8"
 [deps]
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
 DiffEqDiffTools = "01453d9d-ee7c-5054-8395-0335cb756afa"
-DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

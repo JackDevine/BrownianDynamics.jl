@@ -1,8 +1,6 @@
 module BrownianDynamics
 
 using ForwardDiff
-using DifferentialEquations
-using DiffEqDiffTools
 using ToeplitzMatrices
 using OffsetArrays
 using Parameters
