@@ -1,3 +1,33 @@
+"""
+    create_system(xx,yy,Tc,Th,coupling,
+                  p;potential_type=:tilted_channel) -> (u0,params)
+
+Initializes a system to be solved by the finite volume solvers in
+BrownianDynamics. `u0` is an initial condition for the system and `params`
+is the parameters of the system of type `FVMParameters`.
+"""
+function create_system(xx,yy,Tc,Th,coupling,p;potential_type=:tilted_channel)
+    if potential_type == :tilted_channel
+        potential = (x,y) -> -p[1]*x+p[2]cos(2π*x)+p[3]*y^2
+    elseif potential_type == :curved_channel
+        potential = (x,y) -> (-p[1]*x-p[2]*exp(-0.5*(-sin(2π*x)-sin(2π*(0.5y+0.5))+2cos(π*(0.5y+0.5)))^2)
+                              +p[3]*(y)^4-p[4]*cos(2π*x)*cos(2π*(0.5y+0.5)))
+    elseif potential_type == :double_channel
+        potential = (x,y) -> ( exp(-10*(y+0.5)^2)*(-p[4]+p[2]*cos(2π*(x+π/4)))
+                              +exp(-10*(y-0.5)^2)*(-p[5]+p[3]*cos(2π*(x-π/4)))
+                              -p[1]*x+p[6]*y^2)
+    end
+
+    A = 1.0
+    density_init = (x,y) -> exp(-potential(x,y))
+    temperature_init = (x,y) -> ((Tc-Th)/(yy[end]-yy[1]))*y+Th-((Tc-Th)/(yy[end]-yy[1]))*yy[1]
+
+    params = create_params((xx,yy),potential,A,coupling,temperature_init)
+    u0 = create_initial_conditions((xx,yy),density_init,temperature_init)
+
+    u0,params
+end
+
 function create_params(mesh,potential,A,coupling,temperature_init)
     xx,yy = mesh
     nx = length(xx)
