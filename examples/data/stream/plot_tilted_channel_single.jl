@@ -101,7 +101,7 @@ contour(xx,yy,ψ,range(minimum(ψ),stop=maximum(ψ),length=6),colors="g",linewid
 cbar_ax = colorbar()
 cbar_ax.ax.set_visible(false)
 quiver(xx[1:stride:end-1],yy[1:stride:end-1],Jx[1:stride:end-1,1:stride:end-1],
-    Jy[1:stride:end-1,1:stride:end-1],scale=1.5,width=0.005,headwidth=4,zorder=2)
+    Jy[1:stride:end-1,1:stride:end-1],scale=1.9,width=0.005,headwidth=4,zorder=2)
 xticks([])
 ylabel(L"y/l")
 ## Temperature and heat.
@@ -116,7 +116,7 @@ cbar_ax = contourf(T)
 figure(1)
 colorbar(cbar_ax,ticks=round.(range(minimum(T),stop=maximum(T),length=4),digits=2))
 quiver(xx[1:stride:end],yy[1:stride:end],-nablaT_x[1:stride:end,1:stride:end],
-    -nablaT_y[1:stride:end,1:stride:end],zorder=2,width=0.005,headwidth=5,scale=1)
+    -nablaT_y[1:stride:end,1:stride:end],zorder=2,width=0.005,headwidth=5,scale=1.6)
 ylabel(L"y/l")
 xlabel(L"x/L")
 ## Save the plot into the TeX directory.
